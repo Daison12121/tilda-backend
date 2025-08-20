@@ -1,0 +1,15 @@
+# Игнорируем папку node_modules
+node_modules/
+
+# Игнорируем env-файл с секретами
+.env
+
+# Логи
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Кэш
+.cache/
+dist/
+build/
