@@ -22,143 +22,79 @@
     
     // 🔍 ПОЛУЧЕНИЕ EMAIL ИЗ СИСТЕМЫ ТИЛЬДЫ
     function getTildaUserEmail() {
-        log('=== ПОЛНАЯ ДИАГНОСТИКА ВСЕХ ИСТОЧНИКОВ ДАННЫХ ===');
+        log('Поиск email пользователя в системе Тильды...');
         
-        // Проверяем ВСЕ глобальные переменные window
-        log('=== ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ WINDOW ===');
-        const windowVars = ['tildaMembers', 'currentUser', 'tildaForm', 'user', 'member', 'tildaUser', 'userData'];
-        windowVars.forEach(varName => {
-            if (window[varName]) {
-                log(`window.${varName}:`, window[varName]);
-                if (window[varName].email) {
-                    log(`НАЙДЕН EMAIL в window.${varName}: ${window[varName].email}`);
+        // 1. ПРИОРИТЕТ: localStorage tilda_user_data (самый надежный источник)
+        try {
+            const tildaUserData = localStorage.getItem('tilda_user_data');
+            if (tildaUserData) {
+                const userData = JSON.parse(tildaUserData);
+                if (userData.email) {
+                    log(`Email найден в localStorage tilda_user_data: ${userData.email}`);
+                    return userData.email;
                 }
-            } else {
-                log(`window.${varName}: не существует`);
             }
-        });
-        
-        // Проверяем tildaMembers подробно
-        if (window.tildaMembers) {
-            log('=== ДЕТАЛЬНАЯ ПРОВЕРКА tildaMembers ===');
-            log('tildaMembers полная структура:', window.tildaMembers);
-            
-            // Проверяем все методы
-            const methods = Object.getOwnPropertyNames(window.tildaMembers);
-            log('Доступные методы tildaMembers:', methods);
-            
-            methods.forEach(method => {
-                if (typeof window.tildaMembers[method] === 'function') {
-                    log(`Метод ${method} - это функция`);
-                    try {
-                        const result = window.tildaMembers[method]();
-                        log(`Результат ${method}():`, result);
-                        if (result && result.email) {
-                            log(`НАЙДЕН EMAIL через ${method}(): ${result.email}`);
-                        }
-                    } catch (error) {
-                        log(`Ошибка при вызове ${method}():`, error);
-                    }
-                } else {
-                    log(`Свойство ${method}:`, window.tildaMembers[method]);
-                    if (window.tildaMembers[method] && window.tildaMembers[method].email) {
-                        log(`НАЙДЕН EMAIL в ${method}: ${window.tildaMembers[method].email}`);
-                    }
-                }
-            });
+        } catch (error) {
+            log('Ошибка при чтении localStorage tilda_user_data:', error);
         }
         
-        // Проверяем DOM элементы с данными пользователя
-        log('=== ПРОВЕРКА DOM ЭЛЕМЕНТОВ ===');
-        const selectors = [
-            '[data-user-email]',
-            '[data-email]',
-            '.user-email',
-            '.current-user',
-            '#user-email',
-            '.member-email'
-        ];
-        
-        selectors.forEach(selector => {
-            const element = document.querySelector(selector);
-            if (element) {
-                log(`Найден элемент ${selector}:`, element);
-                log(`Содержимое:`, element.textContent);
-                log(`Атрибуты:`, element.attributes);
-            }
-        });
-        
-        // Проверяем localStorage
-        log('=== ПРОВЕРКА LOCALSTORAGE ===');
-        for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
-            if (key.includes('user') || key.includes('email') || key.includes('tilda')) {
-                const value = localStorage.getItem(key);
-                log(`localStorage ${key}:`, value);
-                try {
-                    const parsed = JSON.parse(value);
-                    if (parsed.email) {
-                        log(`НАЙДЕН EMAIL в localStorage ${key}: ${parsed.email}`);
-                    }
-                } catch (e) {
-                    // Не JSON
-                }
-            }
-        }
-        
-        // Проверяем sessionStorage
-        log('=== ПРОВЕРКА SESSIONSTORAGE ===');
-        for (let i = 0; i < sessionStorage.length; i++) {
-            const key = sessionStorage.key(i);
-            if (key.includes('user') || key.includes('email') || key.includes('tilda')) {
-                const value = sessionStorage.getItem(key);
-                log(`sessionStorage ${key}:`, value);
-                try {
-                    const parsed = JSON.parse(value);
-                    if (parsed.email) {
-                        log(`НАЙДЕН EMAIL в sessionStorage ${key}: ${parsed.email}`);
-                    }
-                } catch (e) {
-                    // Не JSON
-                }
-            }
-        }
-        
-        // Проверяем все куки подробно
-        log('=== ДЕТАЛЬНАЯ ПРОВЕРКА ВСЕХ КУКИ ===');
+        // 2. РЕЗЕРВ: кука userEmail
         const cookies = document.cookie.split(';');
-        cookies.forEach(cookie => {
+        for (const cookie of cookies) {
             const [name, value] = cookie.trim().split('=');
-            log(`Кука ${name}:`, decodeURIComponent(value || ''));
-            
-            if (name.includes('email') || name.includes('user') || name.includes('tilda')) {
-                try {
-                    const decoded = decodeURIComponent(value || '');
-                    log(`Декодированная кука ${name}:`, decoded);
-                    
-                    // Пытаемся парсить как JSON
-                    try {
-                        const parsed = JSON.parse(decoded);
-                        log(`Парсированная кука ${name}:`, parsed);
-                        if (parsed.email) {
-                            log(`НАЙДЕН EMAIL в куке ${name}: ${parsed.email}`);
-                        }
-                    } catch (e) {
-                        // Не JSON, проверяем как обычный email
-                        if (decoded.includes('@')) {
-                            log(`ВОЗМОЖНЫЙ EMAIL в куке ${name}: ${decoded}`);
-                        }
-                    }
-                } catch (e) {
-                    log(`Ошибка декодирования куки ${name}:`, e);
+            if (name === 'userEmail' && value) {
+                const email = decodeURIComponent(value);
+                if (email.includes('@')) {
+                    log(`Email найден в куке userEmail: ${email}`);
+                    return email;
                 }
             }
-        });
+        }
         
-        log('=== КОНЕЦ ДИАГНОСТИКИ ===');
-        log('ВНИМАНИЕ: Проверьте логи выше и найдите строки с "НАЙДЕН EMAIL"');
+        // 3. РЕЗЕРВ: кука tilda_user_email
+        for (const cookie of cookies) {
+            const [name, value] = cookie.trim().split('=');
+            if (name === 'tilda_user_email' && value) {
+                const email = decodeURIComponent(value);
+                if (email.includes('@')) {
+                    log(`Email найден в куке tilda_user_email: ${email}`);
+                    return email;
+                }
+            }
+        }
         
-        return null; // Пока возвращаем null, чтобы увидеть всю диагностику
+        // 4. РЕЗЕРВ: кука tilda_user_data
+        for (const cookie of cookies) {
+            const [name, value] = cookie.trim().split('=');
+            if (name === 'tilda_user_data' && value) {
+                try {
+                    const userData = JSON.parse(decodeURIComponent(value));
+                    if (userData.email) {
+                        log(`Email найден в куке tilda_user_data: ${userData.email}`);
+                        return userData.email;
+                    }
+                } catch (error) {
+                    log('Ошибка при парсинге куки tilda_user_data:', error);
+                }
+            }
+        }
+        
+        // 5. РЕЗЕРВ: localStorage tilda_user_email
+        try {
+            const tildaUserEmail = localStorage.getItem('tilda_user_email');
+            if (tildaUserEmail) {
+                const email = JSON.parse(tildaUserEmail);
+                if (email && email.includes('@')) {
+                    log(`Email найден в localStorage tilda_user_email: ${email}`);
+                    return email;
+                }
+            }
+        } catch (error) {
+            log('Ошибка при чтении localStorage tilda_user_email:', error);
+        }
+        
+        log('Email не найден ни в одном источнике');
+        return null;
     }
     
     // 🌐 ПОЛУЧЕНИЕ ДАННЫХ ПОЛЬЗОВАТЕЛЯ С СЕРВЕРА
