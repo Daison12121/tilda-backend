@@ -641,7 +641,30 @@
                 return;
             }
             
-            const userData = await fetchUserData(token, email);
+            let userData = null;
+            
+            // Пробуем с токеном, потом с email
+            if (token) {
+                try {
+                    log('Пробуем запрос с токеном...');
+                    userData = await fetchUserData(token, null);
+                    log('Данные получены по токену');
+                } catch (error) {
+                    log('Ошибка при запросе с токеном:', error.message);
+                    
+                    if (email) {
+                        log('Пробуем запрос по email...');
+                        userData = await fetchUserData(null, email);
+                        log('Данные получены по email');
+                    } else {
+                        throw error;
+                    }
+                }
+            } else if (email) {
+                log('Запрашиваем данные только по email...');
+                userData = await fetchUserData(null, email);
+            }
+            
             displayUserData(userData);
             
         } catch (error) {
@@ -714,22 +737,67 @@
                 displayUserData(cachedData);
                 
                 // Обновляем данные в фоне
-                setTimeout(() => {
-                    fetchUserData(token, email)
-                        .then(userData => {
-                            if (JSON.stringify(userData) !== JSON.stringify(cachedData)) {
-                                log('Данные обновились, перерисовываем');
-                                displayUserData(userData);
+                setTimeout(async () => {
+                    try {
+                        let userData = null;
+                        
+                        // Пробуем с токеном, потом с email
+                        if (token) {
+                            try {
+                                userData = await fetchUserData(token, null);
+                            } catch (error) {
+                                if (email) {
+                                    userData = await fetchUserData(null, email);
+                                }
                             }
-                        })
-                        .catch(error => log('Ошибка фонового обновления:', error));
+                        } else if (email) {
+                            userData = await fetchUserData(null, email);
+                        }
+                        
+                        if (userData && JSON.stringify(userData) !== JSON.stringify(cachedData)) {
+                            log('Данные обновились, перерисовываем');
+                            displayUserData(userData);
+                        }
+                    } catch (error) {
+                        log('Ошибка фонового обновления:', error);
+                    }
                 }, 1000);
                 
                 return;
             }
             
             // Загружаем данные с сервера
-            const userData = await fetchUserData(token, email);
+            let userData = null;
+            
+            // Сначала пробуем запрос с токеном (если есть)
+            if (token) {
+                try {
+                    log('Пробуем запрос с токеном...');
+                    userData = await fetchUserData(token, null);
+                    log('Данные получены по токену');
+                } catch (error) {
+                    log('Ошибка при запросе с токеном:', error.message);
+                    
+                    // Если токен не работает, пробуем по email
+                    if (email) {
+                        log('Пробуем запрос по email...');
+                        try {
+                            userData = await fetchUserData(null, email);
+                            log('Данные получены по email');
+                        } catch (emailError) {
+                            log('Ошибка при запросе по email:', emailError.message);
+                            throw emailError;
+                        }
+                    } else {
+                        throw error;
+                    }
+                }
+            } else if (email) {
+                // Если токена нет, но есть email
+                log('Запрашиваем данные только по email...');
+                userData = await fetchUserData(null, email);
+            }
+            
             displayUserData(userData);
             
         } catch (error) {
