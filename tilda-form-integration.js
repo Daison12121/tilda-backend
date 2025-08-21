@@ -178,7 +178,7 @@
             window.location.hostname.includes('tilda.cc') ||
             window.location.hostname !== 'localhost') {
             // Перенаправляем на страницу кабинета в Тильде (нужно указать правильный URL)
-            cabinetUrl = '/cabinet'; // Замените на реальный URL страницы кабинета в Тильде
+            cabinetUrl = 'https://aida.kg/cabinet'; // URL страницы кабинета в Тильде
         } else {
             // Для тестирования используем наш сервер
             cabinetUrl = `${CONFIG.BACKEND_URL}/cabinet?token=${token}`;
