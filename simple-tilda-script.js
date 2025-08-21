@@ -118,8 +118,8 @@
                     </div>
                     
                     <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; border-left: 4px solid #ffc107;">
-                        <strong style="color: #495057; display: block; margin-bottom: 5px;">📱 Телефон</strong>
-                        <span style="color: #212529;">${userData.phone || 'Не указан'}</span>
+                        <strong style="color: #495057; display: block; margin-bottom: 5px;">🎯 ID пользователя</strong>
+                        <span style="color: #212529; font-family: monospace; font-size: 12px;">${userData.id || 'Не указан'}</span>
                     </div>
                     
                     <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; border-left: 4px solid #17a2b8;">
