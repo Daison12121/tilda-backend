@@ -584,6 +584,9 @@
             ">
                 <h3 style="margin-bottom: 15px; font-size: 1.5rem;">⚠️ Требуется авторизация</h3>
                 <p style="margin-bottom: 20px;">Для доступа к личному кабинету необходимо войти в систему</p>
+                <p style="margin-bottom: 20px; font-size: 14px; color: #666;">
+                    ${window.location.pathname === '/cabinet' ? 'Через 2 секунды вы будете перенаправлены на страницу входа...' : ''}
+                </p>
                 <div style="margin-bottom: 20px;">
                     <button onclick="window.tildaCabinet.refresh()" style="
                         background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%);
@@ -597,6 +600,19 @@
                         margin: 0 5px;
                     ">
                         🔄 Попробовать снова
+                    </button>
+                    <button onclick="window.location.href='/login'" style="
+                        background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%);
+                        color: white;
+                        border: none;
+                        padding: 12px 25px;
+                        border-radius: 25px;
+                        cursor: pointer;
+                        font-size: 14px;
+                        font-weight: 500;
+                        margin: 0 5px;
+                    ">
+                        🔑 Войти в систему
                     </button>
                     <button onclick="window.tildaCabinet.testLogin()" style="
                         background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
@@ -637,6 +653,19 @@
             
             if (!token && !email) {
                 log('Нет данных для авторизации');
+                
+                // Проверяем, есть ли параметр для автоматического перенаправления
+                const urlParams = new URLSearchParams(window.location.search);
+                const autoRedirect = urlParams.get('redirect') !== 'false';
+                
+                if (autoRedirect && window.location.pathname === '/cabinet') {
+                    log('Автоматическое перенаправление на страницу входа...');
+                    // Добавляем задержку для показа сообщения
+                    setTimeout(() => {
+                        window.location.href = '/login?redirect=' + encodeURIComponent(window.location.href);
+                    }, 2000);
+                }
+                
                 showAuthError();
                 return;
             }
@@ -761,6 +790,19 @@
             
             if (!token && !email) {
                 log('Нет данных для авторизации');
+                
+                // Проверяем, есть ли параметр для автоматического перенаправления
+                const urlParams = new URLSearchParams(window.location.search);
+                const autoRedirect = urlParams.get('redirect') !== 'false';
+                
+                if (autoRedirect && window.location.pathname === '/cabinet') {
+                    log('Автоматическое перенаправление на страницу входа...');
+                    // Добавляем задержку для показа сообщения
+                    setTimeout(() => {
+                        window.location.href = '/login?redirect=' + encodeURIComponent(window.location.href);
+                    }, 2000);
+                }
+                
                 showAuthError();
                 return;
             }
