@@ -48,11 +48,18 @@
         return results === null ? '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
     }
     
-    // 💾 СОХРАНЕНИЕ ДАННЫХ В LOCALSTORAGE
+    // 💾 СОХРАНЕНИЕ ДАННЫХ В LOCALSTORAGE И КУКИ
     function saveToStorage(key, data) {
         try {
             localStorage.setItem(key, JSON.stringify(data));
             log(`Данные сохранены в localStorage: ${key}`);
+            
+            // Также сохраняем в куки для надежности
+            if (typeof data === 'string') {
+                setCookie(key, data);
+            } else {
+                setCookie(key, JSON.stringify(data));
+            }
         } catch (error) {
             log(`Ошибка сохранения в localStorage: ${error.message}`);
         }
@@ -66,6 +73,32 @@
         } catch (error) {
             log(`Ошибка чтения из localStorage: ${error.message}`);
             return null;
+        }
+    }
+    
+    // 🍪 ПОЛУЧЕНИЕ ЗНАЧЕНИЯ ИЗ КУКИ
+    function getCookieValue(name) {
+        try {
+            const value = `; ${document.cookie}`;
+            const parts = value.split(`; ${name}=`);
+            if (parts.length === 2) {
+                return parts.pop().split(';').shift();
+            }
+        } catch (error) {
+            log(`Ошибка чтения куки: ${error.message}`);
+        }
+        return null;
+    }
+    
+    // 🍪 УСТАНОВКА КУКИ
+    function setCookie(name, value, days = 30) {
+        try {
+            const expires = new Date();
+            expires.setTime(expires.getTime() + (days * 24 * 60 * 60 * 1000));
+            document.cookie = `${name}=${value};expires=${expires.toUTCString()};path=/`;
+            log(`Куки установлены: ${name}`);
+        } catch (error) {
+            log(`Ошибка установки куки: ${error.message}`);
         }
     }
     
@@ -121,6 +154,24 @@
             log('Email найден в currentUser');
             saveToStorage(CONFIG.STORAGE_KEYS.USER_EMAIL, currentEmail);
             return currentEmail;
+        }
+        
+        // Пытаемся найти email в системе членства Тильды
+        if (window.tildaMembers && window.tildaMembers.currentUser) {
+            const memberEmail = window.tildaMembers.currentUser.email;
+            if (memberEmail) {
+                log('Email найден в tildaMembers');
+                saveToStorage(CONFIG.STORAGE_KEYS.USER_EMAIL, memberEmail);
+                return memberEmail;
+            }
+        }
+        
+        // Проверяем куки
+        const cookieEmail = getCookieValue('tilda_user_email');
+        if (cookieEmail) {
+            log('Email найден в куки');
+            saveToStorage(CONFIG.STORAGE_KEYS.USER_EMAIL, cookieEmail);
+            return cookieEmail;
         }
         
         log('Email не найден');
@@ -503,19 +554,44 @@
             ">
                 <h3 style="margin-bottom: 15px; font-size: 1.5rem;">⚠️ Требуется авторизация</h3>
                 <p style="margin-bottom: 20px;">Для доступа к личному кабинету необходимо войти в систему</p>
-                <button onclick="window.tildaCabinet.refresh()" style="
-                    background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%);
-                    color: #212529;
-                    border: none;
-                    padding: 12px 25px;
-                    border-radius: 25px;
-                    cursor: pointer;
-                    font-size: 14px;
-                    font-weight: 500;
-                    margin: 0 10px;
-                ">
-                    🔄 Попробовать снова
-                </button>
+                <div style="margin-bottom: 20px;">
+                    <button onclick="window.tildaCabinet.refresh()" style="
+                        background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%);
+                        color: #212529;
+                        border: none;
+                        padding: 12px 25px;
+                        border-radius: 25px;
+                        cursor: pointer;
+                        font-size: 14px;
+                        font-weight: 500;
+                        margin: 0 5px;
+                    ">
+                        🔄 Попробовать снова
+                    </button>
+                    <button onclick="window.tildaCabinet.testLogin()" style="
+                        background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+                        color: white;
+                        border: none;
+                        padding: 12px 25px;
+                        border-radius: 25px;
+                        cursor: pointer;
+                        font-size: 14px;
+                        font-weight: 500;
+                        margin: 0 5px;
+                    ">
+                        🧪 Тест с демо-данными
+                    </button>
+                </div>
+                <details style="text-align: left; margin-top: 20px; font-size: 12px; color: #666;">
+                    <summary style="cursor: pointer; margin-bottom: 10px;">🔍 Отладочная информация</summary>
+                    <div id="debug-auth-info">
+                        <div><strong>URL:</strong> ${window.location.href}</div>
+                        <div><strong>localStorage токен:</strong> ${localStorage.getItem('tilda_user_token') || 'Нет'}</div>
+                        <div><strong>localStorage email:</strong> ${localStorage.getItem('tilda_user_email') || 'Нет'}</div>
+                        <div><strong>Куки:</strong> ${document.cookie || 'Нет'}</div>
+                        <div><strong>URL параметры:</strong> ${window.location.search || 'Нет'}</div>
+                    </div>
+                </details>
             </div>
         `;
     }
@@ -564,6 +640,23 @@
     async function loadUserProfile() {
         log('Начинаем загрузку профиля пользователя...');
         
+        // Подробная отладочная информация
+        log('=== ОТЛАДОЧНАЯ ИНФОРМАЦИЯ ===');
+        log('URL:', window.location.href);
+        log('URL параметры:', window.location.search);
+        log('localStorage содержимое:', {
+            token: localStorage.getItem(CONFIG.STORAGE_KEYS.USER_TOKEN),
+            email: localStorage.getItem(CONFIG.STORAGE_KEYS.USER_EMAIL),
+            userData: localStorage.getItem(CONFIG.STORAGE_KEYS.USER_DATA)
+        });
+        log('Куки:', document.cookie);
+        log('Глобальные переменные Тильды:', {
+            tildaForm: !!window.tildaForm,
+            currentUser: !!window.currentUser,
+            tildaMembers: !!window.tildaMembers
+        });
+        log('==============================');
+        
         showLoading();
         
         try {
@@ -571,7 +664,12 @@
             const token = getAuthToken();
             const email = getUserEmail();
             
-            log('Найденные данные авторизации:', { hasToken: !!token, hasEmail: !!email });
+            log('Найденные данные авторизации:', { 
+                hasToken: !!token, 
+                hasEmail: !!email,
+                token: token ? token.substring(0, 20) + '...' : null,
+                email: email
+            });
             
             if (!token && !email) {
                 log('Нет данных для авторизации');
@@ -614,6 +712,21 @@
     function initializeCabinet() {
         log('Инициализация скрипта личного кабинета');
         
+        // 🧪 ТЕСТОВАЯ ФУНКЦИЯ ДЛЯ ДЕМОНСТРАЦИИ
+        function testLogin() {
+            log('Запуск тестового входа с демо-данными');
+            
+            // Устанавливаем тестовые данные
+            const testEmail = 'barbarosgroup2024@gmail.com';
+            const testToken = 'cd0a2d8fc0cac7e5baf197eac40fff1b7417dcc7fd8bc92a559de709f20991fa';
+            
+            saveToStorage(CONFIG.STORAGE_KEYS.USER_EMAIL, testEmail);
+            saveToStorage(CONFIG.STORAGE_KEYS.USER_TOKEN, testToken);
+            
+            // Перезагружаем профиль
+            refreshUserData();
+        }
+        
         // Создаем глобальный объект для управления кабинетом
         window.tildaCabinet = {
             load: loadUserProfile,
@@ -621,7 +734,8 @@
             logout: logout,
             getToken: getAuthToken,
             getEmail: getUserEmail,
-            fetchData: fetchUserData
+            fetchData: fetchUserData,
+            testLogin: testLogin
         };
         
         // Загружаем профиль с небольшой задержкой
