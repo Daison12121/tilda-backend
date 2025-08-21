@@ -682,11 +682,46 @@
             localStorage.removeItem(key);
         });
         
+        // Очищаем куки
+        const cookieNames = ['tilda_user_email', 'tilda_user_token', 'tilda_user_data'];
+        cookieNames.forEach(name => {
+            document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+        });
+        
         // Показываем сообщение
         showAuthError();
         
         // Можно перенаправить на страницу входа
         // window.location.href = '/login';
+    }
+    
+    // 🔄 ЗАГРУЗКА ДАННЫХ ТЕКУЩЕГО ПОЛЬЗОВАТЕЛЯ
+    async function loadCurrentUserData(token, email) {
+        let userData = null;
+        
+        // Пробуем с токеном, потом с email
+        if (token) {
+            try {
+                log('Пробуем запрос с токеном...');
+                userData = await fetchUserData(token, null);
+                log('Данные получены по токену');
+            } catch (error) {
+                log('Ошибка при запросе с токеном:', error.message);
+                
+                if (email) {
+                    log('Пробуем запрос по email...');
+                    userData = await fetchUserData(null, email);
+                    log('Данные получены по email');
+                } else {
+                    throw error;
+                }
+            }
+        } else if (email) {
+            log('Запрашиваем данные только по email...');
+            userData = await fetchUserData(null, email);
+        }
+        
+        return userData;
     }
     
     // 🎯 ОСНОВНАЯ ФУНКЦИЯ ЗАГРУЗКИ ПРОФИЛЯ
@@ -733,8 +768,26 @@
             // Пытаемся загрузить данные из localStorage
             const cachedData = getFromStorage(CONFIG.STORAGE_KEYS.USER_DATA);
             if (cachedData && cachedData.email) {
-                log('Найдены кэшированные данные пользователя');
-                displayUserData(cachedData);
+                // Проверяем, соответствуют ли кэшированные данные текущему пользователю
+                const currentEmail = email || getUserEmail();
+                if (currentEmail && cachedData.email === currentEmail) {
+                    log('Найдены кэшированные данные текущего пользователя');
+                    displayUserData(cachedData);
+                } else {
+                    log(`Кэшированные данные принадлежат другому пользователю (${cachedData.email} != ${currentEmail}), очищаем кэш`);
+                    // Очищаем кэш другого пользователя
+                    localStorage.removeItem(CONFIG.STORAGE_KEYS.USER_DATA);
+                    localStorage.removeItem(CONFIG.STORAGE_KEYS.USER_TOKEN);
+                    
+                    // Если есть данные текущего пользователя, загружаем их
+                    if (currentEmail || token) {
+                        const userData = await loadCurrentUserData(token, currentEmail);
+                        displayUserData(userData);
+                    } else {
+                        showAuthError();
+                    }
+                    return;
+                }
                 
                 // Обновляем данные в фоне
                 setTimeout(async () => {
