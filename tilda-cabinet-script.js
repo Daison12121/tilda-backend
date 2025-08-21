@@ -591,7 +591,7 @@
                 <h3 style="margin-bottom: 15px; font-size: 1.5rem;">⚠️ Требуется авторизация</h3>
                 <p style="margin-bottom: 20px;">Для доступа к личному кабинету необходимо войти в систему</p>
                 <p style="margin-bottom: 20px; font-size: 14px; color: #666;">
-                    ${window.location.pathname === '/cabinet' ? 'Через 2 секунды вы будете перенаправлены на страницу входа...' : ''}
+                    ${window.location.pathname === '/cabinet' ? 'Через 2 секунды вы будете перенаправлены на страницу авторизации...' : ''}
                 </p>
                 <div style="margin-bottom: 20px;">
                     <button onclick="window.tildaCabinet.forceRefresh()" style="
@@ -607,7 +607,7 @@
                     ">
                         🔄 Обновить данные
                     </button>
-                    <button onclick="window.location.href='/login'" style="
+                    <button onclick="window.location.href='/members/login'" style="
                         background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%);
                         color: white;
                         border: none;
@@ -668,7 +668,7 @@
                     log('Автоматическое перенаправление на страницу входа...');
                     // Добавляем задержку для показа сообщения
                     setTimeout(() => {
-                        window.location.href = '/login?redirect=' + encodeURIComponent(window.location.href);
+                        window.location.href = '/members/login?redirect=' + encodeURIComponent(window.location.href);
                     }, 2000);
                 }
                 
@@ -818,7 +818,7 @@
                     log('Автоматическое перенаправление на страницу входа...');
                     // Добавляем задержку для показа сообщения
                     setTimeout(() => {
-                        window.location.href = '/login?redirect=' + encodeURIComponent(window.location.href);
+                        window.location.href = '/members/login?redirect=' + encodeURIComponent(window.location.href);
                     }, 2000);
                 }
                 
