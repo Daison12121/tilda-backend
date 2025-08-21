@@ -84,6 +84,13 @@
             const [name, value] = cookie.trim().split('=');
             if (name.includes('email') || name.includes('user')) {
                 log(`Найдена кука ${name}: ${value}`);
+                
+                // Проверяем специфичные куки Тильды
+                if (name === 'tilda_user_email' && value) {
+                    const decodedEmail = decodeURIComponent(value);
+                    log(`Email найден в куке tilda_user_email: ${decodedEmail}`);
+                    return decodedEmail;
+                }
             }
         }
         
@@ -365,6 +372,19 @@
                         ">
                             🧪 Тест с shoppingalanya@gmail.com
                         </button>
+                        <button onclick="window.tildaCabinet.clearCache()" style="
+                            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+                            color: white;
+                            border: none;
+                            padding: 12px 25px;
+                            border-radius: 25px;
+                            cursor: pointer;
+                            font-size: 14px;
+                            font-weight: 500;
+                            margin: 0 5px;
+                        ">
+                            🗑️ Очистить кэш Тильды
+                        </button>
                     </div>
                 </div>
             `;
@@ -453,11 +473,38 @@
             }
         }
         
+        // Функция очистки старых данных Тильды
+        function clearTildaCache() {
+            log('Очищаем кэш данных Тильды...');
+            
+            // Очищаем куки Тильды
+            const cookiesToClear = ['tilda_user_email', 'tilda_user_data', 'tilda_user_token'];
+            cookiesToClear.forEach(cookieName => {
+                document.cookie = `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+                log(`Очищена кука: ${cookieName}`);
+            });
+            
+            // Очищаем localStorage
+            const localStorageKeys = ['tilda_user_email', 'tilda_user_data', 'tilda_user_token'];
+            localStorageKeys.forEach(key => {
+                if (localStorage.getItem(key)) {
+                    localStorage.removeItem(key);
+                    log(`Очищен localStorage: ${key}`);
+                }
+            });
+            
+            log('Кэш очищен, перезагружаем страницу...');
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        }
+        
         // Создаем глобальный объект для управления кабинетом
         window.tildaCabinet = {
             refresh: loadUserProfile,
             getEmail: getTildaUserEmail,
-            testWithEmail: testWithEmail
+            testWithEmail: testWithEmail,
+            clearCache: clearTildaCache
         };
         
         // Загружаем профиль с задержкой
