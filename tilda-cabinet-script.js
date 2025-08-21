@@ -1,0 +1,646 @@
+/**
+ * 🏠 СКРИПТ ДЛЯ СТРАНИЦЫ ЛИЧНОГО КАБИНЕТА В ТИЛЬДЕ
+ * 
+ * Этот скрипт нужно добавить на страницу личного кабинета в Тильде.
+ * Он получает данные пользователя через токен из URL или через localStorage.
+ * 
+ * ИНСТРУКЦИЯ ПО УСТАНОВКЕ:
+ * 1. Скопируйте весь этот код
+ * 2. В Тильде на странице личного кабинета добавьте блок "HTML-код"
+ * 3. Вставьте этот код в блок
+ * 4. Сохраните и опубликуйте страницу
+ */
+
+(function() {
+    'use strict';
+    
+    // ⚙️ НАСТРОЙКИ
+    const CONFIG = {
+        // URL вашего бэкенда на Railway
+        BACKEND_URL: 'https://tilda-backend-production.up.railway.app',
+        
+        // Время ожидания ответа от сервера (в миллисекундах)
+        TIMEOUT: 10000,
+        
+        // Показывать ли подробные логи в консоли
+        DEBUG: true,
+        
+        // Ключи для localStorage
+        STORAGE_KEYS: {
+            USER_DATA: 'tilda_user_data',
+            USER_TOKEN: 'tilda_user_token',
+            USER_EMAIL: 'tilda_user_email'
+        }
+    };
+    
+    // 📝 ФУНКЦИЯ ЛОГИРОВАНИЯ
+    function log(message, data = null) {
+        if (CONFIG.DEBUG) {
+            console.log(`[Tilda Cabinet] ${message}`, data || '');
+        }
+    }
+    
+    // 🔍 ПОЛУЧЕНИЕ ПАРАМЕТРА ИЗ URL
+    function getUrlParameter(name) {
+        name = name.replace(/[\[]/, '\\[').replace(/[\]]/, '\\]');
+        const regex = new RegExp('[\\?&]' + name + '=([^&#]*)');
+        const results = regex.exec(location.search);
+        return results === null ? '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
+    }
+    
+    // 💾 СОХРАНЕНИЕ ДАННЫХ В LOCALSTORAGE
+    function saveToStorage(key, data) {
+        try {
+            localStorage.setItem(key, JSON.stringify(data));
+            log(`Данные сохранены в localStorage: ${key}`);
+        } catch (error) {
+            log(`Ошибка сохранения в localStorage: ${error.message}`);
+        }
+    }
+    
+    // 📖 ПОЛУЧЕНИЕ ДАННЫХ ИЗ LOCALSTORAGE
+    function getFromStorage(key) {
+        try {
+            const data = localStorage.getItem(key);
+            return data ? JSON.parse(data) : null;
+        } catch (error) {
+            log(`Ошибка чтения из localStorage: ${error.message}`);
+            return null;
+        }
+    }
+    
+    // 🔄 ПОЛУЧЕНИЕ ТОКЕНА (ИЗ URL ИЛИ LOCALSTORAGE)
+    function getAuthToken() {
+        // Сначала проверяем URL
+        const urlToken = getUrlParameter('token');
+        if (urlToken) {
+            log('Токен найден в URL');
+            // Сохраняем токен в localStorage для будущих посещений
+            saveToStorage(CONFIG.STORAGE_KEYS.USER_TOKEN, urlToken);
+            return urlToken;
+        }
+        
+        // Если в URL нет токена, проверяем localStorage
+        const storageToken = getFromStorage(CONFIG.STORAGE_KEYS.USER_TOKEN);
+        if (storageToken) {
+            log('Токен найден в localStorage');
+            return storageToken;
+        }
+        
+        log('Токен не найден');
+        return null;
+    }
+    
+    // 📧 ПОЛУЧЕНИЕ EMAIL ПОЛЬЗОВАТЕЛЯ
+    function getUserEmail() {
+        // Проверяем URL параметр
+        const urlEmail = getUrlParameter('email');
+        if (urlEmail) {
+            log('Email найден в URL');
+            saveToStorage(CONFIG.STORAGE_KEYS.USER_EMAIL, urlEmail);
+            return urlEmail;
+        }
+        
+        // Проверяем localStorage
+        const storageEmail = getFromStorage(CONFIG.STORAGE_KEYS.USER_EMAIL);
+        if (storageEmail) {
+            log('Email найден в localStorage');
+            return storageEmail;
+        }
+        
+        // Пытаемся найти email в глобальных переменных Тильды
+        if (window.tildaForm && window.tildaForm.userEmail) {
+            const tildaEmail = window.tildaForm.userEmail;
+            log('Email найден в tildaForm');
+            saveToStorage(CONFIG.STORAGE_KEYS.USER_EMAIL, tildaEmail);
+            return tildaEmail;
+        }
+        
+        if (window.currentUser && window.currentUser.email) {
+            const currentEmail = window.currentUser.email;
+            log('Email найден в currentUser');
+            saveToStorage(CONFIG.STORAGE_KEYS.USER_EMAIL, currentEmail);
+            return currentEmail;
+        }
+        
+        log('Email не найден');
+        return null;
+    }
+    
+    // 🌐 ПОЛУЧЕНИЕ ДАННЫХ ПОЛЬЗОВАТЕЛЯ С СЕРВЕРА
+    async function fetchUserData(token = null, email = null) {
+        try {
+            let url = `${CONFIG.BACKEND_URL}`;
+            
+            if (token) {
+                // Если есть токен, используем эндпоинт с токеном
+                url += `/api/user?token=${encodeURIComponent(token)}`;
+                log('Запрашиваем данные по токену');
+            } else if (email) {
+                // Если есть email, используем простой эндпоинт
+                url += `/user?email=${encodeURIComponent(email)}`;
+                log('Запрашиваем данные по email');
+            } else {
+                throw new Error('Нет ни токена, ни email для запроса');
+            }
+            
+            log('Отправляем запрос:', url);
+            
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const result = await response.json();
+            log('Получены данные пользователя:', result);
+            
+            const userData = result.data || result;
+            
+            // Сохраняем данные в localStorage
+            saveToStorage(CONFIG.STORAGE_KEYS.USER_DATA, userData);
+            if (userData.email) {
+                saveToStorage(CONFIG.STORAGE_KEYS.USER_EMAIL, userData.email);
+            }
+            
+            return userData;
+            
+        } catch (error) {
+            log('Ошибка при получении данных пользователя:', error);
+            throw error;
+        }
+    }
+    
+    // 🎨 ОТОБРАЖЕНИЕ ДАННЫХ ПОЛЬЗОВАТЕЛЯ НА СТРАНИЦЕ
+    function displayUserData(userData) {
+        // Ищем контейнер для данных или создаем его
+        let container = document.getElementById('user-data-container');
+        
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'user-data-container';
+            container.style.cssText = `
+                max-width: 800px;
+                margin: 20px auto;
+                padding: 0;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            `;
+            
+            // Вставляем контейнер в подходящее место
+            const targetElement = document.querySelector('.t-container') || 
+                                 document.querySelector('.t-section') || 
+                                 document.querySelector('.t-col') ||
+                                 document.body;
+            targetElement.appendChild(container);
+        }
+        
+        if (userData) {
+            container.innerHTML = `
+                <!-- Приветственное сообщение -->
+                <div style="
+                    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+                    color: white;
+                    padding: 25px;
+                    border-radius: 15px;
+                    margin-bottom: 25px;
+                    text-align: center;
+                    box-shadow: 0 8px 25px rgba(79, 172, 254, 0.3);
+                ">
+                    <h2 style="margin: 0 0 10px 0; font-size: 1.8rem; font-weight: 500;">
+                        👋 Добро пожаловать, ${userData.name || 'Пользователь'}!
+                    </h2>
+                    <p style="margin: 0; opacity: 0.9; font-size: 1.1rem;">
+                        Рады видеть вас в личном кабинете
+                    </p>
+                </div>
+                
+                <!-- Основная карточка с данными -->
+                <div style="
+                    background: white;
+                    border-radius: 20px;
+                    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+                    overflow: hidden;
+                    margin-bottom: 25px;
+                ">
+                    <!-- Заголовок карточки -->
+                    <div style="
+                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                        color: white;
+                        padding: 25px;
+                        text-align: center;
+                    ">
+                        <h3 style="margin: 0; font-size: 1.5rem; font-weight: 500;">
+                            📋 Личная информация
+                        </h3>
+                    </div>
+                    
+                    <!-- Содержимое карточки -->
+                    <div style="padding: 30px;">
+                        <!-- Сетка с данными -->
+                        <div style="
+                            display: grid;
+                            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+                            gap: 20px;
+                            margin-bottom: 25px;
+                        ">
+                            <div style="
+                                background: #f8f9fa;
+                                padding: 20px;
+                                border-radius: 12px;
+                                border-left: 4px solid #007bff;
+                                transition: transform 0.2s ease;
+                            " onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
+                                <strong style="color: #495057; display: block; margin-bottom: 8px; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.5px;">
+                                    📧 Email
+                                </strong>
+                                <span style="color: #212529; font-size: 1.1rem; font-weight: 500;">
+                                    ${userData.email || 'Не указан'}
+                                </span>
+                            </div>
+                            
+                            <div style="
+                                background: #f8f9fa;
+                                padding: 20px;
+                                border-radius: 12px;
+                                border-left: 4px solid #28a745;
+                                transition: transform 0.2s ease;
+                            " onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
+                                <strong style="color: #495057; display: block; margin-bottom: 8px; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.5px;">
+                                    👤 Имя
+                                </strong>
+                                <span style="color: #212529; font-size: 1.1rem; font-weight: 500;">
+                                    ${userData.name || 'Не указано'}
+                                </span>
+                            </div>
+                            
+                            <div style="
+                                background: #f8f9fa;
+                                padding: 20px;
+                                border-radius: 12px;
+                                border-left: 4px solid #ffc107;
+                                transition: transform 0.2s ease;
+                            " onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
+                                <strong style="color: #495057; display: block; margin-bottom: 8px; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.5px;">
+                                    🎯 ID пользователя
+                                </strong>
+                                <span style="color: #212529; font-family: monospace; font-size: 0.9rem; word-break: break-all;">
+                                    ${userData.id || 'Не указан'}
+                                </span>
+                            </div>
+                            
+                            <div style="
+                                background: #f8f9fa;
+                                padding: 20px;
+                                border-radius: 12px;
+                                border-left: 4px solid #17a2b8;
+                                transition: transform 0.2s ease;
+                            " onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
+                                <strong style="color: #495057; display: block; margin-bottom: 8px; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.5px;">
+                                    📅 Дата регистрации
+                                </strong>
+                                <span style="color: #212529; font-size: 1.1rem; font-weight: 500;">
+                                    ${userData.created_at ? new Date(userData.created_at).toLocaleDateString('ru-RU', {
+                                        year: 'numeric',
+                                        month: 'long',
+                                        day: 'numeric'
+                                    }) : 'Не указана'}
+                                </span>
+                            </div>
+                        </div>
+                        
+                        <!-- Статистика -->
+                        <div style="
+                            display: grid;
+                            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                            gap: 15px;
+                            margin-bottom: 25px;
+                        ">
+                            <div style="
+                                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                                color: white;
+                                padding: 20px;
+                                border-radius: 12px;
+                                text-align: center;
+                            ">
+                                <div style="font-size: 1.8rem; font-weight: bold; margin-bottom: 5px;">
+                                    ${userData.created_at ? Math.ceil((new Date() - new Date(userData.created_at)) / (1000 * 60 * 60 * 24)) : 0}
+                                </div>
+                                <div style="font-size: 0.9rem; opacity: 0.9;">дней с нами</div>
+                            </div>
+                            
+                            <div style="
+                                background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+                                color: white;
+                                padding: 20px;
+                                border-radius: 12px;
+                                text-align: center;
+                            ">
+                                <div style="font-size: 1.8rem; font-weight: bold; margin-bottom: 5px;">✅</div>
+                                <div style="font-size: 0.9rem; opacity: 0.9;">профиль активен</div>
+                            </div>
+                            
+                            <div style="
+                                background: linear-gradient(135deg, #dc3545 0%, #e74c3c 100%);
+                                color: white;
+                                padding: 20px;
+                                border-radius: 12px;
+                                text-align: center;
+                            ">
+                                <div style="font-size: 1.8rem; font-weight: bold; margin-bottom: 5px;">🔒</div>
+                                <div style="font-size: 0.9rem; opacity: 0.9;">данные защищены</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Кнопки действий -->
+                        <div style="text-align: center;">
+                            <button onclick="window.tildaCabinet.refresh()" style="
+                                background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+                                color: white;
+                                border: none;
+                                padding: 12px 25px;
+                                border-radius: 25px;
+                                cursor: pointer;
+                                font-size: 14px;
+                                font-weight: 500;
+                                margin: 0 10px;
+                                transition: transform 0.2s ease;
+                            " onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
+                                🔄 Обновить данные
+                            </button>
+                            
+                            <button onclick="window.tildaCabinet.logout()" style="
+                                background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+                                color: white;
+                                border: none;
+                                padding: 12px 25px;
+                                border-radius: 25px;
+                                cursor: pointer;
+                                font-size: 14px;
+                                font-weight: 500;
+                                margin: 0 10px;
+                                transition: transform 0.2s ease;
+                            " onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
+                                🚪 Выйти
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        } else {
+            container.innerHTML = `
+                <div style="
+                    background: white;
+                    border-radius: 15px;
+                    padding: 40px;
+                    text-align: center;
+                    color: #dc3545;
+                    box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+                ">
+                    <h3 style="margin-bottom: 15px; font-size: 1.5rem;">❌ Данные не найдены</h3>
+                    <p style="margin-bottom: 20px;">Не удалось загрузить информацию о пользователе</p>
+                    <button onclick="window.tildaCabinet.refresh()" style="
+                        background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+                        color: white;
+                        border: none;
+                        padding: 12px 25px;
+                        border-radius: 25px;
+                        cursor: pointer;
+                        font-size: 14px;
+                        font-weight: 500;
+                    ">
+                        🔄 Попробовать снова
+                    </button>
+                </div>
+            `;
+        }
+    }
+    
+    // ⏳ ОТОБРАЖЕНИЕ СОСТОЯНИЯ ЗАГРУЗКИ
+    function showLoading() {
+        let container = document.getElementById('user-data-container');
+        
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'user-data-container';
+            container.style.cssText = `
+                max-width: 800px;
+                margin: 20px auto;
+                padding: 0;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            `;
+            
+            const targetElement = document.querySelector('.t-container') || 
+                                 document.querySelector('.t-section') || 
+                                 document.querySelector('.t-col') ||
+                                 document.body;
+            targetElement.appendChild(container);
+        }
+        
+        container.innerHTML = `
+            <div style="
+                background: white;
+                border-radius: 15px;
+                padding: 50px;
+                text-align: center;
+                box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+            ">
+                <div style="
+                    border: 3px solid #f3f3f3;
+                    border-top: 3px solid #007bff;
+                    border-radius: 50%;
+                    width: 50px;
+                    height: 50px;
+                    animation: spin 1s linear infinite;
+                    margin: 0 auto 20px;
+                "></div>
+                <h3 style="color: #333; margin-bottom: 10px; font-size: 1.5rem;">Загрузка профиля...</h3>
+                <p style="color: #666; margin: 0;">Получаем ваши данные</p>
+            </div>
+            
+            <style>
+                @keyframes spin {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
+                }
+            </style>
+        `;
+    }
+    
+    // ❌ ОТОБРАЖЕНИЕ ОШИБКИ АВТОРИЗАЦИИ
+    function showAuthError() {
+        let container = document.getElementById('user-data-container');
+        
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'user-data-container';
+            container.style.cssText = `
+                max-width: 800px;
+                margin: 20px auto;
+                padding: 0;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            `;
+            
+            const targetElement = document.querySelector('.t-container') || 
+                                 document.querySelector('.t-section') || 
+                                 document.querySelector('.t-col') ||
+                                 document.body;
+            targetElement.appendChild(container);
+        }
+        
+        container.innerHTML = `
+            <div style="
+                background: white;
+                border-radius: 15px;
+                padding: 40px;
+                text-align: center;
+                color: #ffc107;
+                box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+            ">
+                <h3 style="margin-bottom: 15px; font-size: 1.5rem;">⚠️ Требуется авторизация</h3>
+                <p style="margin-bottom: 20px;">Для доступа к личному кабинету необходимо войти в систему</p>
+                <button onclick="window.tildaCabinet.refresh()" style="
+                    background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%);
+                    color: #212529;
+                    border: none;
+                    padding: 12px 25px;
+                    border-radius: 25px;
+                    cursor: pointer;
+                    font-size: 14px;
+                    font-weight: 500;
+                    margin: 0 10px;
+                ">
+                    🔄 Попробовать снова
+                </button>
+            </div>
+        `;
+    }
+    
+    // 🔄 ОБНОВЛЕНИЕ ДАННЫХ ПОЛЬЗОВАТЕЛЯ
+    async function refreshUserData() {
+        log('Обновление данных пользователя...');
+        showLoading();
+        
+        try {
+            const token = getAuthToken();
+            const email = getUserEmail();
+            
+            if (!token && !email) {
+                log('Нет данных для авторизации');
+                showAuthError();
+                return;
+            }
+            
+            const userData = await fetchUserData(token, email);
+            displayUserData(userData);
+            
+        } catch (error) {
+            log('Ошибка при обновлении данных:', error);
+            displayUserData(null);
+        }
+    }
+    
+    // 🚪 ВЫХОД ИЗ СИСТЕМЫ
+    function logout() {
+        log('Выход из системы');
+        
+        // Очищаем localStorage
+        Object.values(CONFIG.STORAGE_KEYS).forEach(key => {
+            localStorage.removeItem(key);
+        });
+        
+        // Показываем сообщение
+        showAuthError();
+        
+        // Можно перенаправить на страницу входа
+        // window.location.href = '/login';
+    }
+    
+    // 🎯 ОСНОВНАЯ ФУНКЦИЯ ЗАГРУЗКИ ПРОФИЛЯ
+    async function loadUserProfile() {
+        log('Начинаем загрузку профиля пользователя...');
+        
+        showLoading();
+        
+        try {
+            // Получаем токен и email
+            const token = getAuthToken();
+            const email = getUserEmail();
+            
+            log('Найденные данные авторизации:', { hasToken: !!token, hasEmail: !!email });
+            
+            if (!token && !email) {
+                log('Нет данных для авторизации');
+                showAuthError();
+                return;
+            }
+            
+            // Пытаемся загрузить данные из localStorage
+            const cachedData = getFromStorage(CONFIG.STORAGE_KEYS.USER_DATA);
+            if (cachedData && cachedData.email) {
+                log('Найдены кэшированные данные пользователя');
+                displayUserData(cachedData);
+                
+                // Обновляем данные в фоне
+                setTimeout(() => {
+                    fetchUserData(token, email)
+                        .then(userData => {
+                            if (JSON.stringify(userData) !== JSON.stringify(cachedData)) {
+                                log('Данные обновились, перерисовываем');
+                                displayUserData(userData);
+                            }
+                        })
+                        .catch(error => log('Ошибка фонового обновления:', error));
+                }, 1000);
+                
+                return;
+            }
+            
+            // Загружаем данные с сервера
+            const userData = await fetchUserData(token, email);
+            displayUserData(userData);
+            
+        } catch (error) {
+            log('Ошибка при загрузке профиля:', error);
+            displayUserData(null);
+        }
+    }
+    
+    // 🚀 ИНИЦИАЛИЗАЦИЯ СКРИПТА
+    function initializeCabinet() {
+        log('Инициализация скрипта личного кабинета');
+        
+        // Создаем глобальный объект для управления кабинетом
+        window.tildaCabinet = {
+            load: loadUserProfile,
+            refresh: refreshUserData,
+            logout: logout,
+            getToken: getAuthToken,
+            getEmail: getUserEmail,
+            fetchData: fetchUserData
+        };
+        
+        // Загружаем профиль с небольшой задержкой
+        setTimeout(loadUserProfile, 500);
+        
+        log('Скрипт личного кабинета инициализирован');
+        log('Доступные функции:', Object.keys(window.tildaCabinet));
+    }
+    
+    // 🎬 ЗАПУСК СКРИПТА
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initializeCabinet);
+    } else {
+        initializeCabinet();
+    }
+    
+    // Дополнительная проверка через 1 секунду (на случай динамической загрузки)
+    setTimeout(initializeCabinet, 1000);
+    
+    log('Скрипт личного кабинета для Тильды загружен');
+    
+})();

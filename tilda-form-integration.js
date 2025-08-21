@@ -158,8 +158,32 @@
     }
     
     // 🔄 ПЕРЕНАПРАВЛЕНИЕ НА СТРАНИЦУ КАБИНЕТА
-    function redirectToCabinet(token) {
-        const cabinetUrl = `${CONFIG.BACKEND_URL}/cabinet?token=${token}`;
+    function redirectToCabinet(token, userData = null) {
+        // Сохраняем данные в localStorage для страницы кабинета
+        try {
+            localStorage.setItem('tilda_user_token', token);
+            if (userData) {
+                localStorage.setItem('tilda_user_data', JSON.stringify(userData));
+                localStorage.setItem('tilda_user_email', userData.email);
+            }
+        } catch (error) {
+            log('Ошибка сохранения в localStorage:', error);
+        }
+        
+        // Определяем URL страницы кабинета
+        let cabinetUrl;
+        
+        // Если мы на том же домене, перенаправляем на страницу кабинета Тильды
+        if (window.location.hostname.includes('tilda.ws') || 
+            window.location.hostname.includes('tilda.cc') ||
+            window.location.hostname !== 'localhost') {
+            // Перенаправляем на страницу кабинета в Тильде (нужно указать правильный URL)
+            cabinetUrl = '/cabinet'; // Замените на реальный URL страницы кабинета в Тильде
+        } else {
+            // Для тестирования используем наш сервер
+            cabinetUrl = `${CONFIG.BACKEND_URL}/cabinet?token=${token}`;
+        }
+        
         log('Перенаправляем в кабинет', cabinetUrl);
         
         showNotification('✅ Авторизация успешна! Перенаправляем...', 'success');
@@ -213,7 +237,7 @@
                     log('Авторизация успешна', response.data);
                     
                     if (response.data.token) {
-                        redirectToCabinet(response.data.token);
+                        redirectToCabinet(response.data.token, response.data.user);
                     } else {
                         showNotification('✅ Авторизация успешна!', 'success');
                     }
