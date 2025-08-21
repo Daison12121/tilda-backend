@@ -3,7 +3,7 @@
     'use strict';
     
     // URL вашего бэкенда на Railway
-    const BACKEND_URL = 'https://your-railway-app.railway.app'; // ЗАМЕНИТЕ НА ВАШ URL
+    const BACKEND_URL = tilda-backend-production.up.railway.app'; // ЗАМЕНИТЕ НА ВАШ URL
     
     // Функция для получения данных пользователя
     async function fetchUserData(email) {
