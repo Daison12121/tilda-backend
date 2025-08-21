@@ -157,21 +157,51 @@
         }
         
         // Пытаемся найти email в системе членства Тильды
-        if (window.tildaMembers && window.tildaMembers.currentUser) {
-            const memberEmail = window.tildaMembers.currentUser.email;
-            if (memberEmail) {
-                log('Email найден в tildaMembers');
-                saveToStorage(CONFIG.STORAGE_KEYS.USER_EMAIL, memberEmail);
-                return memberEmail;
+        if (window.tildaMembers) {
+            log('Проверяем tildaMembers:', window.tildaMembers);
+            
+            // Проверяем разные варианты структуры данных
+            const memberSources = [
+                window.tildaMembers.currentUser,
+                window.tildaMembers.user,
+                window.tildaMembers.member,
+                window.tildaMembers
+            ];
+            
+            for (const source of memberSources) {
+                if (source && source.email) {
+                    log(`Email найден в tildaMembers: ${source.email}`);
+                    saveToStorage(CONFIG.STORAGE_KEYS.USER_EMAIL, source.email);
+                    return source.email;
+                }
+            }
+            
+            // Проверяем методы получения данных пользователя
+            if (typeof window.tildaMembers.getCurrentUser === 'function') {
+                try {
+                    const currentUser = window.tildaMembers.getCurrentUser();
+                    if (currentUser && currentUser.email) {
+                        log(`Email найден через getCurrentUser: ${currentUser.email}`);
+                        saveToStorage(CONFIG.STORAGE_KEYS.USER_EMAIL, currentUser.email);
+                        return currentUser.email;
+                    }
+                } catch (error) {
+                    log('Ошибка при вызове getCurrentUser:', error);
+                }
             }
         }
         
-        // Проверяем куки
-        const cookieEmail = getCookieValue('tilda_user_email');
-        if (cookieEmail) {
-            log('Email найден в куки');
-            saveToStorage(CONFIG.STORAGE_KEYS.USER_EMAIL, cookieEmail);
-            return cookieEmail;
+        // Проверяем куки (разные варианты имен)
+        const cookieNames = ['tilda_user_email', 'userEmail', 'user_email', 'email'];
+        for (const cookieName of cookieNames) {
+            const cookieEmail = getCookieValue(cookieName);
+            if (cookieEmail) {
+                log(`Email найден в куки ${cookieName}: ${cookieEmail}`);
+                // Декодируем URL-кодированный email
+                const decodedEmail = decodeURIComponent(cookieEmail);
+                saveToStorage(CONFIG.STORAGE_KEYS.USER_EMAIL, decodedEmail);
+                return decodedEmail;
+            }
         }
         
         log('Email не найден');
