@@ -2,77 +2,75 @@ import express from "express";
 import dotenv from "dotenv";
 import { createClient } from "@supabase/supabase-js";
 import path from "path";
-import { fileURLToPath } from "url";
+import crypto from "crypto";
 
+// Загрузка переменных окружения из файла .env
 dotenv.config();
 
+// Инициализация Express
 const app = express();
 const PORT = process.env.PORT || 3000;
+const __dirname = path.resolve();
 
-// Получаем __dirname для ES modules
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// --- Инициализация Supabase (используй service_role в .env) ---
+// Подключение к Supabase (используем service_role из .env)
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
-// --- Базовые миддлвары ---
+// Базовые миддлвары для обработки JSON и URL-кодированных данных
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// --- Статические файлы ---
-app.use(express.static(__dirname));
-
-// --- CORS (разрешаем Tilda; на локали можно всё) ---
+// Разрешаем CORS для всех доменов
 app.use((req, res, next) => {
-  const origin = req.headers.origin || "";
-  const isTilda = origin.endsWith(".tilda.ws") || origin.endsWith(".tilda.cc");
-  const isLocal = origin.startsWith("http://localhost");
-  const isCustom = origin === "https://YOUR_CUSTOM_DOMAIN"; // ← при необходимости
-
-  if (isTilda || isLocal || isCustom) {
-    res.setHeader("Access-Control-Allow-Origin", origin);
-  }
-  res.setHeader("Vary", "Origin");
+  res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  if (req.method === "OPTIONS") return res.sendStatus(204);
+  if (req.method === "OPTIONS") return res.sendStatus(200);
   next();
 });
 
-// --- Health ---
-app.get("/health", (_req, res) => res.json({ status: "ok" }));
-
-// --- Подсказка на корне ---
-app.get("/", (_req, res) =>
-  res.send("✅ Сервер работает. GET /health, GET /user/:email, GET /user?email=..., GET /profile?email=...")
-);
-
-// --- Страница профиля ---
-app.get("/profile", (req, res) => {
-  res.sendFile(path.join(__dirname, "user-profile.html"));
+// Healthcheck — проверяем, что сервер жив
+app.get("/health", (req, res) => {
+  res.json({ status: "ok" });
 });
 
-// --- Вариант 1: /user/:email ---
-app.get("/user/:email", async (req, res) => {
+// ✅ НОВЫЙ ЭНДПОИНТ: Обработка вебхука с формы Тильды (POST-запрос)
+app.post("/api/login", async (req, res) => {
   try {
-    const { email } = req.params;
+    const { email } = req.body; // Данные из формы приходят в теле запроса (req.body)
+    if (!email) {
+      return res.status(400).json({ status: "error", error: "email is required" });
+    }
 
     const { data, error } = await supabase
-      .from("users")                // таблица: users
+      .from("users")
       .select("*")
       .eq("email", email)
-      .maybeSingle();               // не упадёт, если нет записи
+      .maybeSingle();
 
-    if (error) return res.status(500).json({ error: error.message });
-    if (!data) return res.status(404).json({ error: "User not found" });
+    if (error || !data) {
+      // ✅ Важно: При ошибке отправляем JSON-ответ с ошибкой, который Тильда может показать пользователю
+      return res.status(404).json({ status: "error", error: "Пользователь не найден." });
+    }
 
-    res.json({ data });
+    // ✅ Генерируем уникальный токен
+    const token = crypto.randomBytes(32).toString('hex');
+    const { error: tokenError } = await supabase
+      .from("tokens") // Убедитесь, что таблица 'tokens' создана в Supabase
+      .insert({ token, email });
+
+    if (tokenError) {
+      return res.status(500).json({ status: "error", error: tokenError.message });
+    }
+
+    // ✅ Отправляем ответ, который перенаправит пользователя
+    res.json({ status: "success", redirect: `/cabinet?token=${token}` });
+
   } catch (e) {
-    res.status(500).json({ error: e.message || "Internal server error" });
+    res.status(500).json({ status: "error", error: "Internal server error" });
   }
 });
 
-// --- Вариант 2: /user?email=... ---
+// ✅ СУЩЕСТВУЮЩИЙ ЭНДПОИНТ: Получение данных пользователя по email
 app.get("/user", async (req, res) => {
   try {
     const email = req.query.email;
@@ -93,6 +91,7 @@ app.get("/user", async (req, res) => {
   }
 });
 
+// Запускаем сервер
 app.listen(PORT, () => {
-  console.log(`🚀 Сервер запущен: http://localhost:${PORT}`);
+  console.log(`Server is running on port ${PORT}`);
 });
