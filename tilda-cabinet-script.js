@@ -588,15 +588,15 @@
                 color: #ffc107;
                 box-shadow: 0 8px 25px rgba(0,0,0,0.1);
             ">
-                <h3 style="margin-bottom: 15px; font-size: 1.5rem;">⚠️ Требуется авторизация</h3>
-                <p style="margin-bottom: 20px;">Для доступа к личному кабинету необходимо войти в систему</p>
+                <h3 style="margin-bottom: 15px; font-size: 1.5rem;">⚠️ Загрузка данных...</h3>
+                <p style="margin-bottom: 20px;">Получаем данные пользователя из системы Тильды</p>
                 <p style="margin-bottom: 20px; font-size: 14px; color: #666;">
-                    ${window.location.pathname === '/cabinet' ? 'Через 2 секунды вы будете перенаправлены на страницу авторизации...' : ''}
+                    ${window.location.pathname === '/cabinet' ? 'Если данные не загружаются, вы будете перенаправлены на страницу авторизации...' : ''}
                 </p>
                 <div style="margin-bottom: 20px;">
                     <button onclick="window.tildaCabinet.forceRefresh()" style="
-                        background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%);
-                        color: #212529;
+                        background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+                        color: white;
                         border: none;
                         padding: 12px 25px;
                         border-radius: 25px;
@@ -607,21 +607,8 @@
                     ">
                         🔄 Обновить данные
                     </button>
-                    <button onclick="window.location.href='/members/login'" style="
-                        background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%);
-                        color: white;
-                        border: none;
-                        padding: 12px 25px;
-                        border-radius: 25px;
-                        cursor: pointer;
-                        font-size: 14px;
-                        font-weight: 500;
-                        margin: 0 5px;
-                    ">
-                        🔑 Войти в систему
-                    </button>
                     <button onclick="window.tildaCabinet.testLogin()" style="
-                        background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+                        background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%);
                         color: white;
                         border: none;
                         padding: 12px 25px;
@@ -669,7 +656,7 @@
                     // Добавляем задержку для показа сообщения
                     setTimeout(() => {
                         window.location.href = '/members/login?redirect=' + encodeURIComponent(window.location.href);
-                    }, 2000);
+                    }, 5000);
                 }
                 
                 showAuthError();
@@ -772,6 +759,25 @@
         loadUserProfile();
     }
     
+    // ⏳ ОЖИДАНИЕ ЗАГРУЗКИ ДАННЫХ ТИЛЬДЫ
+    async function waitForTildaData(maxWaitTime = 10000) {
+        const startTime = Date.now();
+        
+        while (Date.now() - startTime < maxWaitTime) {
+            const email = getCurrentTildaEmail();
+            if (email) {
+                log(`Данные Тильды загружены: ${email}`);
+                return email;
+            }
+            
+            // Ждем 500мс перед следующей проверкой
+            await new Promise(resolve => setTimeout(resolve, 500));
+        }
+        
+        log('Время ожидания данных Тильды истекло');
+        return null;
+    }
+    
     // 🎯 ОСНОВНАЯ ФУНКЦИЯ ЗАГРУЗКИ ПРОФИЛЯ
     async function loadUserProfile() {
         log('Начинаем загрузку профиля пользователя...');
@@ -796,15 +802,20 @@
         showLoading();
         
         try {
+            // Сначала ждем загрузки данных Тильды
+            log('Ожидаем загрузки данных пользователя из системы Тильды...');
+            const tildaEmail = await waitForTildaData();
+            
             // Получаем токен и email
             const token = getAuthToken();
-            const email = getUserEmail();
+            const email = tildaEmail || getUserEmail();
             
             log('Найденные данные авторизации:', { 
                 hasToken: !!token, 
                 hasEmail: !!email,
                 token: token ? token.substring(0, 20) + '...' : null,
-                email: email
+                email: email,
+                fromTilda: !!tildaEmail
             });
             
             if (!token && !email) {
@@ -819,7 +830,7 @@
                     // Добавляем задержку для показа сообщения
                     setTimeout(() => {
                         window.location.href = '/members/login?redirect=' + encodeURIComponent(window.location.href);
-                    }, 2000);
+                    }, 5000);
                 }
                 
                 showAuthError();
@@ -944,15 +955,14 @@
             load: loadUserProfile,
             refresh: refreshUserData,
             forceRefresh: forceRefreshUserData,
-            logout: logout,
             getToken: getAuthToken,
             getEmail: getUserEmail,
             fetchData: fetchUserData,
             testLogin: testLogin
         };
         
-        // Загружаем профиль с небольшой задержкой
-        setTimeout(loadUserProfile, 500);
+        // Загружаем профиль с задержкой, чтобы дать время Тильде загрузить данные пользователя
+        setTimeout(loadUserProfile, 2000);
         
         log('Скрипт личного кабинета инициализирован');
         log('Доступные функции:', Object.keys(window.tildaCabinet));
