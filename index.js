@@ -35,14 +35,76 @@ app.use((req, res, next) => {
   next();
 });
 
-// ✅ ЭНДПОИНТ: Простая проверка Webhook
-// Этот эндпоинт просто возвращает успешный ответ,
-// даже если данные не переданы
-app.post("/api/login", (req, res) => {
-  console.log("Получен запрос POST на /api/login");
-  console.log("Данные запроса (req.body):", req.body);
-  // Вместо 400 Bad Request мы возвращаем 200 OK
-  res.status(200).json({ status: "success", message: "Webhook received data successfully." });
+// ✅ ЭНДПОИНТ: Авторизация пользователя
+app.post("/api/login", async (req, res) => {
+  try {
+    console.log("Получен запрос POST на /api/login");
+    console.log("Данные запроса (req.body):", req.body);
+    
+    const { email, password } = req.body;
+    
+    if (!email) {
+      return res.status(400).json({ 
+        status: "error", 
+        message: "Email обязателен для авторизации" 
+      });
+    }
+    
+    // Проверяем, существует ли пользователь в базе
+    const { data: userData, error: userError } = await supabase
+      .from("users")
+      .select("*")
+      .eq("email", email)
+      .maybeSingle();
+    
+    if (userError) {
+      console.error("Ошибка при поиске пользователя:", userError);
+      return res.status(500).json({ 
+        status: "error", 
+        message: "Ошибка сервера при поиске пользователя" 
+      });
+    }
+    
+    if (!userData) {
+      return res.status(401).json({ 
+        status: "error", 
+        message: "Пользователь с таким email не найден" 
+      });
+    }
+    
+    // Генерируем токен для сессии
+    const sessionToken = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 часа
+    
+    // Сохраняем токен в базе (если таблица tokens существует)
+    try {
+      await supabase
+        .from("tokens")
+        .insert({
+          token: sessionToken,
+          email: email,
+          expires_at: expiresAt.toISOString()
+        });
+    } catch (tokenError) {
+      console.log("Таблица tokens не найдена, пропускаем сохранение токена");
+    }
+    
+    // Возвращаем успешный ответ с токеном и URL для перенаправления
+    res.status(200).json({ 
+      status: "success", 
+      message: "Авторизация успешна",
+      token: sessionToken,
+      user: userData,
+      redirect_url: `/cabinet?token=${sessionToken}`
+    });
+    
+  } catch (error) {
+    console.error("Ошибка при авторизации:", error);
+    res.status(500).json({ 
+      status: "error", 
+      message: "Внутренняя ошибка сервера" 
+    });
+  }
 });
 
 // ✅ ЭНДПОИНТ: Получение данных пользователя по токену (остается без изменений)

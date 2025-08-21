@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тест формы авторизации</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 500px;
+            margin: 50px auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            margin: 0;
+            font-size: 1.8rem;
+            font-weight: 500;
+        }
+        
+        .form-container {
+            padding: 40px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #495057;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+            box-sizing: border-box;
+        }
+        
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .btn {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .test-info {
+            background: #e3f2fd;
+            border: 1px solid #2196f3;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .test-info h3 {
+            margin: 0 0 10px 0;
+            color: #1976d2;
+        }
+        
+        .test-info p {
+            margin: 5px 0;
+            color: #424242;
+            font-size: 14px;
+        }
+        
+        .debug-panel {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 20px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .debug-panel h4 {
+            margin: 0 0 10px 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔐 Тест авторизации</h1>
+        </div>
+        
+        <div class="form-container">
+            <div class="test-info">
+                <h3>📋 Информация для теста</h3>
+                <p><strong>Email:</strong> barbarosgroup2024@gmail.com</p>
+                <p><strong>Пароль:</strong> любой (не проверяется)</p>
+                <p><strong>Результат:</strong> перенаправление в личный кабинет</p>
+            </div>
+            
+            <!-- Форма авторизации (имитирует форму Тильды) -->
+            <form class="t-form js-form-proccess" id="loginForm">
+                <div class="form-group">
+                    <label for="email">📧 Email</label>
+                    <input 
+                        type="email" 
+                        id="email" 
+                        name="email" 
+                        placeholder="Введите ваш email"
+                        value="barbarosgroup2024@gmail.com"
+                        required
+                    >
+                </div>
+                
+                <div class="form-group">
+                    <label for="password">🔒 Пароль</label>
+                    <input 
+                        type="password" 
+                        id="password" 
+                        name="password" 
+                        placeholder="Введите пароль"
+                        value="test123"
+                    >
+                </div>
+                
+                <button type="submit" class="btn" id="submitBtn">
+                    🚀 Войти в кабинет
+                </button>
+            </form>
+            
+            <div class="debug-panel" id="debugPanel">
+                <h4>🔍 Отладочная информация</h4>
+                <div id="debugContent">Ожидание действий...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Подключаем наш скрипт интеграции -->
+    <script>
+        /**
+         * 🚀 СКРИПТ ДЛЯ ИНТЕГРАЦИИ ФОРМЫ АВТОРИЗАЦИИ ТИЛЬДЫ
+         */
+
+        (function() {
+            'use strict';
+            
+            // ⚙️ НАСТРОЙКИ
+            const CONFIG = {
+                // URL вашего бэкенда (локальный для теста)
+                BACKEND_URL: 'http://localhost:3000',
+                
+                // Селекторы для поиска формы (Тильда использует разные классы)
+                FORM_SELECTORS: [
+                    'form[data-form-type="login"]',
+                    'form.js-form-proccess',
+                    'form[action*="forms.tildacdn.com"]',
+                    'form.t-form',
+                    'form'
+                ],
+                
+                // Селекторы для полей email и password
+                EMAIL_SELECTORS: [
+                    'input[name="email"]',
+                    'input[type="email"]',
+                    'input[name="Email"]',
+                    'input[placeholder*="mail"]',
+                    'input[placeholder*="почт"]'
+                ],
+                
+                PASSWORD_SELECTORS: [
+                    'input[name="password"]',
+                    'input[type="password"]',
+                    'input[name="Password"]',
+                    'input[placeholder*="пароль"]',
+                    'input[placeholder*="Password"]'
+                ],
+                
+                // Время ожидания ответа от сервера (в миллисекундах)
+                TIMEOUT: 10000,
+                
+                // Показывать ли подробные логи в консоли
+                DEBUG: true
+            };
+            
+            // 📝 ФУНКЦИЯ ЛОГИРОВАНИЯ
+            function log(message, data = null) {
+                if (CONFIG.DEBUG) {
+                    console.log(`[Tilda Auth] ${message}`, data || '');
+                    
+                    // Добавляем в debug панель
+                    const debugContent = document.getElementById('debugContent');
+                    if (debugContent) {
+                        const timestamp = new Date().toLocaleTimeString();
+                        debugContent.innerHTML += `<div>[${timestamp}] ${message}</div>`;
+                        debugContent.scrollTop = debugContent.scrollHeight;
+                    }
+                }
+            }
+            
+            // 🔍 ПОИСК ЭЛЕМЕНТА ПО НЕСКОЛЬКИМ СЕЛЕКТОРАМ
+            function findElement(selectors) {
+                for (const selector of selectors) {
+                    const element = document.querySelector(selector);
+                    if (element) {
+                        log(`Найден элемент по селектору: ${selector}`);
+                        return element;
+                    }
+                }
+                return null;
+            }
+            
+            // 📧 ОТПРАВКА ДАННЫХ НА СЕРВЕР
+            async function sendLoginRequest(email, password) {
+                try {
+                    log('Отправляем запрос авторизации', { email, password: '***' });
+                    
+                    const response = await fetch(`${CONFIG.BACKEND_URL}/api/login`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ email, password })
+                    });
+                    
+                    const result = await response.json();
+                    log('Получен ответ от сервера', result);
+                    
+                    return { success: response.ok, data: result };
+                    
+                } catch (error) {
+                    log('Ошибка при отправке запроса', error);
+                    return { 
+                        success: false, 
+                        data: { 
+                            status: 'error', 
+                            message: 'Ошибка подключения к серверу' 
+                        } 
+                    };
+                }
+            }
+            
+            // 🎨 ПОКАЗ УВЕДОМЛЕНИЯ ПОЛЬЗОВАТЕЛЮ
+            function showNotification(message, type = 'info') {
+                // Удаляем предыдущие уведомления
+                const existingNotifications = document.querySelectorAll('.tilda-auth-notification');
+                existingNotifications.forEach(n => n.remove());
+                
+                // Создаем новое уведомление
+                const notification = document.createElement('div');
+                notification.className = 'tilda-auth-notification';
+                notification.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    z-index: 10000;
+                    padding: 15px 20px;
+                    border-radius: 8px;
+                    color: white;
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                    font-size: 14px;
+                    font-weight: 500;
+                    max-width: 350px;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                    animation: slideIn 0.3s ease-out;
+                    ${type === 'success' ? 'background: linear-gradient(135deg, #28a745, #20c997);' : ''}
+                    ${type === 'error' ? 'background: linear-gradient(135deg, #dc3545, #e74c3c);' : ''}
+                    ${type === 'info' ? 'background: linear-gradient(135deg, #007bff, #6610f2);' : ''}
+                `;
+                
+                // Добавляем стили анимации
+                if (!document.querySelector('#tilda-auth-styles')) {
+                    const styles = document.createElement('style');
+                    styles.id = 'tilda-auth-styles';
+                    styles.textContent = `
+                        @keyframes slideIn {
+                            from { transform: translateX(100%); opacity: 0; }
+                            to { transform: translateX(0); opacity: 1; }
+                        }
+                        @keyframes slideOut {
+                            from { transform: translateX(0); opacity: 1; }
+                            to { transform: translateX(100%); opacity: 0; }
+                        }
+                    `;
+                    document.head.appendChild(styles);
+                }
+                
+                notification.textContent = message;
+                document.body.appendChild(notification);
+                
+                // Автоматически скрываем через 5 секунд
+                setTimeout(() => {
+                    notification.style.animation = 'slideOut 0.3s ease-in';
+                    setTimeout(() => notification.remove(), 300);
+                }, 5000);
+            }
+            
+            // 🔄 ПЕРЕНАПРАВЛЕНИЕ НА СТРАНИЦУ КАБИНЕТА
+            function redirectToCabinet(token) {
+                const cabinetUrl = `${CONFIG.BACKEND_URL}/cabinet?token=${token}`;
+                log('Перенаправляем в кабинет', cabinetUrl);
+                
+                showNotification('✅ Авторизация успешна! Перенаправляем...', 'success');
+                
+                setTimeout(() => {
+                    window.location.href = cabinetUrl;
+                }, 1500);
+            }
+            
+            // 📋 ОБРАБОТКА ОТПРАВКИ ФОРМЫ
+            function handleFormSubmit(event, form) {
+                event.preventDefault();
+                log('Перехвачена отправка формы');
+                
+                // Блокируем кнопку отправки
+                const submitBtn = document.getElementById('submitBtn');
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.textContent = '⏳ Проверяем...';
+                }
+                
+                // Находим поля email и password
+                const emailField = findElement(CONFIG.EMAIL_SELECTORS);
+                const passwordField = findElement(CONFIG.PASSWORD_SELECTORS);
+                
+                if (!emailField) {
+                    log('Поле email не найдено');
+                    showNotification('❌ Поле email не найдено на форме', 'error');
+                    return;
+                }
+                
+                const email = emailField.value.trim();
+                const password = passwordField ? passwordField.value : '';
+                
+                if (!email) {
+                    showNotification('❌ Введите email', 'error');
+                    emailField.focus();
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = '🚀 Войти в кабинет';
+                    }
+                    return;
+                }
+                
+                // Проверяем формат email
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!emailRegex.test(email)) {
+                    showNotification('❌ Введите корректный email', 'error');
+                    emailField.focus();
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = '🚀 Войти в кабинет';
+                    }
+                    return;
+                }
+                
+                log('Данные формы валидны', { email, hasPassword: !!password });
+                
+                // Показываем индикатор загрузки
+                showNotification('🔄 Проверяем данные...', 'info');
+                
+                // Отправляем запрос на сервер
+                sendLoginRequest(email, password)
+                    .then(response => {
+                        if (response.success && response.data.status === 'success') {
+                            log('Авторизация успешна', response.data);
+                            
+                            if (response.data.token) {
+                                redirectToCabinet(response.data.token);
+                            } else {
+                                showNotification('✅ Авторизация успешна!', 'success');
+                            }
+                        } else {
+                            log('Ошибка авторизации', response.data);
+                            const errorMessage = response.data.message || 'Неизвестная ошибка';
+                            showNotification(`❌ ${errorMessage}`, 'error');
+                        }
+                    })
+                    .catch(error => {
+                        log('Критическая ошибка', error);
+                        showNotification('❌ Произошла ошибка. Попробуйте позже.', 'error');
+                    })
+                    .finally(() => {
+                        // Разблокируем кнопку
+                        if (submitBtn) {
+                            submitBtn.disabled = false;
+                            submitBtn.textContent = '🚀 Войти в кабинет';
+                        }
+                    });
+            }
+            
+            // 🎯 ИНИЦИАЛИЗАЦИЯ СКРИПТА
+            function initializeScript() {
+                log('Инициализация скрипта авторизации');
+                
+                // Ищем форму на странице
+                const form = findElement(CONFIG.FORM_SELECTORS);
+                
+                if (!form) {
+                    log('Форма не найдена на странице');
+                    return;
+                }
+                
+                log('Форма найдена', form);
+                
+                // Добавляем обработчик отправки формы
+                form.addEventListener('submit', (event) => {
+                    handleFormSubmit(event, form);
+                });
+                
+                log('Обработчик формы установлен');
+                
+                // Добавляем визуальный индикатор того, что скрипт работает
+                if (CONFIG.DEBUG) {
+                    showNotification('🔗 Скрипт авторизации активен', 'info');
+                }
+            }
+            
+            // 🚀 ЗАПУСК СКРИПТА
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', initializeScript);
+            } else {
+                initializeScript();
+            }
+            
+            log('Скрипт интеграции с Тильдой загружен');
+            
+        })();
+    </script>
+</body>
+</html>
