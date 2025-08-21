@@ -22,12 +22,19 @@
     
     // 🔍 ПОЛУЧЕНИЕ EMAIL ИЗ СИСТЕМЫ ТИЛЬДЫ
     function getTildaUserEmail() {
-        // Проверяем систему членства Тильды
+        log('=== ДИАГНОСТИКА СИСТЕМЫ ТИЛЬДЫ ===');
+        log('window.tildaMembers:', !!window.tildaMembers);
+        log('window.currentUser:', !!window.currentUser);
+        log('window.tildaForm:', !!window.tildaForm);
+        
         if (window.tildaMembers) {
+            log('tildaMembers структура:', Object.keys(window.tildaMembers));
+            
             // Проверяем методы получения текущего пользователя
             if (typeof window.tildaMembers.getCurrentUser === 'function') {
                 try {
                     const currentUser = window.tildaMembers.getCurrentUser();
+                    log('getCurrentUser результат:', currentUser);
                     if (currentUser && currentUser.email) {
                         log(`Email найден через getCurrentUser: ${currentUser.email}`);
                         return currentUser.email;
@@ -39,30 +46,48 @@
             
             // Проверяем разные варианты структуры данных
             const memberSources = [
-                window.tildaMembers.currentUser,
-                window.tildaMembers.user,
-                window.tildaMembers.member
+                { name: 'currentUser', data: window.tildaMembers.currentUser },
+                { name: 'user', data: window.tildaMembers.user },
+                { name: 'member', data: window.tildaMembers.member }
             ];
             
             for (const source of memberSources) {
-                if (source && source.email) {
-                    log(`Email найден в tildaMembers: ${source.email}`);
-                    return source.email;
+                log(`Проверяем ${source.name}:`, source.data);
+                if (source.data && source.data.email) {
+                    log(`Email найден в tildaMembers.${source.name}: ${source.data.email}`);
+                    return source.data.email;
                 }
             }
         }
         
         // Проверяем глобальные переменные
-        if (window.currentUser && window.currentUser.email) {
-            log(`Email найден в currentUser: ${window.currentUser.email}`);
-            return window.currentUser.email;
+        if (window.currentUser) {
+            log('currentUser структура:', window.currentUser);
+            if (window.currentUser.email) {
+                log(`Email найден в currentUser: ${window.currentUser.email}`);
+                return window.currentUser.email;
+            }
         }
         
-        if (window.tildaForm && window.tildaForm.userEmail) {
-            log(`Email найден в tildaForm: ${window.tildaForm.userEmail}`);
-            return window.tildaForm.userEmail;
+        if (window.tildaForm) {
+            log('tildaForm структура:', window.tildaForm);
+            if (window.tildaForm.userEmail) {
+                log(`Email найден в tildaForm: ${window.tildaForm.userEmail}`);
+                return window.tildaForm.userEmail;
+            }
         }
         
+        // Проверяем куки
+        const cookies = document.cookie.split(';');
+        log('Куки:', cookies);
+        for (const cookie of cookies) {
+            const [name, value] = cookie.trim().split('=');
+            if (name.includes('email') || name.includes('user')) {
+                log(`Найдена кука ${name}: ${value}`);
+            }
+        }
+        
+        log('Email не найден ни в одном источнике');
         return null;
     }
     
@@ -311,8 +336,8 @@
                     color: #ffc107;
                     box-shadow: 0 8px 25px rgba(0,0,0,0.1);
                 ">
-                    <h3 style="margin-bottom: 15px; font-size: 1.5rem;">⚠️ Загрузка данных...</h3>
-                    <p style="margin-bottom: 20px;">Получаем данные пользователя из системы Тильды</p>
+                    <h3 style="margin-bottom: 15px; font-size: 1.5rem;">⚠️ Не удалось найти данные пользователя</h3>
+                    <p style="margin-bottom: 20px;">Скрипт не может найти email в системе Тильды. Проверьте консоль для диагностики.</p>
                     <div style="margin-bottom: 20px;">
                         <button onclick="window.tildaCabinet.refresh()" style="
                             background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
@@ -325,7 +350,20 @@
                             font-weight: 500;
                             margin: 0 5px;
                         ">
-                            🔄 Обновить данные
+                            🔄 Попробовать снова
+                        </button>
+                        <button onclick="window.tildaCabinet.testWithEmail('shoppingalanya@gmail.com')" style="
+                            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+                            color: white;
+                            border: none;
+                            padding: 12px 25px;
+                            border-radius: 25px;
+                            cursor: pointer;
+                            font-size: 14px;
+                            font-weight: 500;
+                            margin: 0 5px;
+                        ">
+                            🧪 Тест с shoppingalanya@gmail.com
                         </button>
                     </div>
                 </div>
@@ -334,10 +372,15 @@
     }
     
     // ⏳ ОЖИДАНИЕ ЗАГРУЗКИ ДАННЫХ ТИЛЬДЫ
-    async function waitForTildaData(maxWaitTime = 5000) {
+    async function waitForTildaData(maxWaitTime = 3000) {
         const startTime = Date.now();
+        let attempts = 0;
+        const maxAttempts = 15; // максимум 15 попыток
         
-        while (Date.now() - startTime < maxWaitTime) {
+        while (Date.now() - startTime < maxWaitTime && attempts < maxAttempts) {
+            attempts++;
+            log(`Попытка ${attempts}/${maxAttempts} получить email из Тильды...`);
+            
             const email = getTildaUserEmail();
             if (email) {
                 log(`Данные Тильды загружены: ${email}`);
@@ -348,7 +391,7 @@
             await new Promise(resolve => setTimeout(resolve, 200));
         }
         
-        log('Время ожидания данных Тильды истекло');
+        log(`Время ожидания данных Тильды истекло после ${attempts} попыток`);
         return null;
     }
     
@@ -363,14 +406,12 @@
             
             if (!email) {
                 log('Не удалось получить email из системы Тильды');
+                
+                // Показываем сообщение с диагностикой
                 displayUserData(null);
                 
-                // Перенаправляем на страницу авторизации через 3 секунды
-                if (window.location.pathname === '/cabinet') {
-                    setTimeout(() => {
-                        window.location.href = '/members/login?redirect=' + encodeURIComponent(window.location.href);
-                    }, 3000);
-                }
+                // НЕ перенаправляем автоматически, даем пользователю время разобраться
+                log('Автоматическое перенаправление отключено для диагностики');
                 return;
             }
             
@@ -397,10 +438,26 @@
     function initializeCabinet() {
         log('Инициализация упрощенного скрипта личного кабинета');
         
+        // Функция тестирования с конкретным email
+        async function testWithEmail(email) {
+            log(`Тестируем с email: ${email}`);
+            try {
+                const userData = await fetchUserData(email);
+                if (userData) {
+                    displayUserData(userData);
+                } else {
+                    log('Не удалось получить данные для тестового email');
+                }
+            } catch (error) {
+                log('Ошибка при тестировании:', error);
+            }
+        }
+        
         // Создаем глобальный объект для управления кабинетом
         window.tildaCabinet = {
             refresh: loadUserProfile,
-            getEmail: getTildaUserEmail
+            getEmail: getTildaUserEmail,
+            testWithEmail: testWithEmail
         };
         
         // Загружаем профиль с задержкой
