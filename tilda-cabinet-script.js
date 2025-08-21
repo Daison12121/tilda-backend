@@ -20,81 +20,214 @@
         }
     }
     
-    // 🔍 ПОЛУЧЕНИЕ EMAIL ИЗ СИСТЕМЫ ТИЛЬДЫ
+    // 🔍 ПОИСК COLLABZA SDK И ТОКЕНОВ
     function getTildaUserEmail() {
-        log('Поиск email пользователя в системе Тильды...');
+        log('=== ПОИСК COLLABZA SDK И СИСТЕМЫ СЕССИЙ ===');
         
-        // 1. ПРИОРИТЕТ: localStorage tilda_user_data (самый надежный источник)
-        try {
-            const tildaUserData = localStorage.getItem('tilda_user_data');
-            if (tildaUserData) {
-                const userData = JSON.parse(tildaUserData);
-                if (userData.email) {
-                    log(`Email найден в localStorage tilda_user_data: ${userData.email}`);
-                    return userData.email;
-                }
-            }
-        } catch (error) {
-            log('Ошибка при чтении localStorage tilda_user_data:', error);
-        }
+        // 1. ПОИСК COLLABZA SDK В ГЛОБАЛЬНЫХ ПЕРЕМЕННЫХ
+        log('=== ПОИСК COLLABZA/ВНЕШНИХ SDK ===');
+        const possibleSDKs = [
+            'Collabza', 'collabza', 'COLLABZA',
+            'CollabzaSDK', 'collabzaSDK', 'collabza_sdk',
+            'CZ', 'cz', 'czSDK',
+            'UserSDK', 'userSDK', 'user_sdk',
+            'AuthSDK', 'authSDK', 'auth_sdk',
+            'SessionSDK', 'sessionSDK', 'session_sdk'
+        ];
         
-        // 2. РЕЗЕРВ: кука userEmail
-        const cookies = document.cookie.split(';');
-        for (const cookie of cookies) {
-            const [name, value] = cookie.trim().split('=');
-            if (name === 'userEmail' && value) {
-                const email = decodeURIComponent(value);
-                if (email.includes('@')) {
-                    log(`Email найден в куке userEmail: ${email}`);
-                    return email;
-                }
-            }
-        }
-        
-        // 3. РЕЗЕРВ: кука tilda_user_email
-        for (const cookie of cookies) {
-            const [name, value] = cookie.trim().split('=');
-            if (name === 'tilda_user_email' && value) {
-                const email = decodeURIComponent(value);
-                if (email.includes('@')) {
-                    log(`Email найден в куке tilda_user_email: ${email}`);
-                    return email;
-                }
-            }
-        }
-        
-        // 4. РЕЗЕРВ: кука tilda_user_data
-        for (const cookie of cookies) {
-            const [name, value] = cookie.trim().split('=');
-            if (name === 'tilda_user_data' && value) {
-                try {
-                    const userData = JSON.parse(decodeURIComponent(value));
-                    if (userData.email) {
-                        log(`Email найден в куке tilda_user_data: ${userData.email}`);
-                        return userData.email;
+        possibleSDKs.forEach(sdkName => {
+            if (window[sdkName]) {
+                log(`НАЙДЕН SDK: window.${sdkName}`, window[sdkName]);
+                
+                // Проверяем методы SDK
+                if (typeof window[sdkName] === 'object') {
+                    const methods = Object.keys(window[sdkName]);
+                    log(`Методы ${sdkName}:`, methods);
+                    
+                    // Ищем методы получения пользователя
+                    const userMethods = methods.filter(method => 
+                        method.toLowerCase().includes('user') || 
+                        method.toLowerCase().includes('email') ||
+                        method.toLowerCase().includes('current') ||
+                        method.toLowerCase().includes('session') ||
+                        method.toLowerCase().includes('auth')
+                    );
+                    
+                    if (userMethods.length > 0) {
+                        log(`Найдены методы пользователя в ${sdkName}:`, userMethods);
+                        
+                        userMethods.forEach(method => {
+                            try {
+                                if (typeof window[sdkName][method] === 'function') {
+                                    const result = window[sdkName][method]();
+                                    log(`${sdkName}.${method}():`, result);
+                                    if (result && result.email) {
+                                        log(`НАЙДЕН EMAIL через ${sdkName}.${method}(): ${result.email}`);
+                                    }
+                                } else {
+                                    log(`${sdkName}.${method}:`, window[sdkName][method]);
+                                    if (window[sdkName][method] && window[sdkName][method].email) {
+                                        log(`НАЙДЕН EMAIL в ${sdkName}.${method}: ${window[sdkName][method].email}`);
+                                    }
+                                }
+                            } catch (error) {
+                                log(`Ошибка при вызове ${sdkName}.${method}:`, error);
+                            }
+                        });
                     }
-                } catch (error) {
-                    log('Ошибка при парсинге куки tilda_user_data:', error);
+                }
+            }
+        });
+        
+        // 2. ПОИСК ВСЕХ ГЛОБАЛЬНЫХ ПЕРЕМЕННЫХ С ДАННЫМИ ПОЛЬЗОВАТЕЛЯ
+        log('=== ПОИСК ВСЕХ ГЛОБАЛЬНЫХ ПЕРЕМЕННЫХ ===');
+        const allWindowKeys = Object.keys(window);
+        const userRelatedKeys = allWindowKeys.filter(key => 
+            key.toLowerCase().includes('user') ||
+            key.toLowerCase().includes('auth') ||
+            key.toLowerCase().includes('session') ||
+            key.toLowerCase().includes('token') ||
+            key.toLowerCase().includes('email') ||
+            key.toLowerCase().includes('current') ||
+            key.toLowerCase().includes('member') ||
+            key.toLowerCase().includes('profile') ||
+            key.toLowerCase().includes('account')
+        );
+        
+        log('Найдены переменные связанные с пользователем:', userRelatedKeys);
+        
+        userRelatedKeys.forEach(key => {
+            try {
+                const value = window[key];
+                log(`window.${key}:`, value);
+                
+                if (value && typeof value === 'object') {
+                    if (value.email) {
+                        log(`НАЙДЕН EMAIL в window.${key}: ${value.email}`);
+                    }
+                    
+                    // Проверяем вложенные объекты
+                    Object.keys(value).forEach(subKey => {
+                        if (subKey.toLowerCase().includes('email') || 
+                            subKey.toLowerCase().includes('user') ||
+                            subKey.toLowerCase().includes('current')) {
+                            log(`  ${key}.${subKey}:`, value[subKey]);
+                            if (value[subKey] && value[subKey].email) {
+                                log(`НАЙДЕН EMAIL в window.${key}.${subKey}: ${value[subKey].email}`);
+                            }
+                        }
+                    });
+                }
+            } catch (error) {
+                log(`Ошибка при проверке window.${key}:`, error);
+            }
+        });
+        
+        // 3. ПОИСК ТОКЕНОВ И СЕССИЙ В STORAGE
+        log('=== ПОИСК ТОКЕНОВ COLLABZA В STORAGE ===');
+        
+        // localStorage
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key.toLowerCase().includes('collabza') ||
+                key.toLowerCase().includes('token') ||
+                key.toLowerCase().includes('session') ||
+                key.toLowerCase().includes('auth') ||
+                key.toLowerCase().includes('jwt') ||
+                key.toLowerCase().includes('access') ||
+                key.toLowerCase().includes('bearer')) {
+                
+                const value = localStorage.getItem(key);
+                log(`localStorage ${key}:`, value);
+                
+                try {
+                    const parsed = JSON.parse(value);
+                    log(`Парсированный ${key}:`, parsed);
+                    if (parsed.email) {
+                        log(`НАЙДЕН EMAIL в localStorage ${key}: ${parsed.email}`);
+                    }
+                } catch (e) {
+                    // Не JSON
                 }
             }
         }
         
-        // 5. РЕЗЕРВ: localStorage tilda_user_email
-        try {
-            const tildaUserEmail = localStorage.getItem('tilda_user_email');
-            if (tildaUserEmail) {
-                const email = JSON.parse(tildaUserEmail);
-                if (email && email.includes('@')) {
-                    log(`Email найден в localStorage tilda_user_email: ${email}`);
-                    return email;
+        // sessionStorage
+        for (let i = 0; i < sessionStorage.length; i++) {
+            const key = sessionStorage.key(i);
+            if (key.toLowerCase().includes('collabza') ||
+                key.toLowerCase().includes('token') ||
+                key.toLowerCase().includes('session') ||
+                key.toLowerCase().includes('auth') ||
+                key.toLowerCase().includes('jwt') ||
+                key.toLowerCase().includes('access') ||
+                key.toLowerCase().includes('bearer')) {
+                
+                const value = sessionStorage.getItem(key);
+                log(`sessionStorage ${key}:`, value);
+                
+                try {
+                    const parsed = JSON.parse(value);
+                    log(`Парсированный ${key}:`, parsed);
+                    if (parsed.email) {
+                        log(`НАЙДЕН EMAIL в sessionStorage ${key}: ${parsed.email}`);
+                    }
+                } catch (e) {
+                    // Не JSON
                 }
             }
-        } catch (error) {
-            log('Ошибка при чтении localStorage tilda_user_email:', error);
         }
         
-        log('Email не найден ни в одном источнике');
-        return null;
+        // 4. ПОИСК ТОКЕНОВ В КУКАХ
+        log('=== ПОИСК ТОКЕНОВ COLLABZA В КУКАХ ===');
+        const cookies = document.cookie.split(';');
+        cookies.forEach(cookie => {
+            const [name, value] = cookie.trim().split('=');
+            if (name.toLowerCase().includes('collabza') ||
+                name.toLowerCase().includes('token') ||
+                name.toLowerCase().includes('session') ||
+                name.toLowerCase().includes('auth') ||
+                name.toLowerCase().includes('jwt') ||
+                name.toLowerCase().includes('access') ||
+                name.toLowerCase().includes('bearer')) {
+                
+                try {
+                    const decoded = decodeURIComponent(value || '');
+                    log(`Кука ${name}:`, decoded);
+                    
+                    try {
+                        const parsed = JSON.parse(decoded);
+                        log(`Парсированная кука ${name}:`, parsed);
+                        if (parsed.email) {
+                            log(`НАЙДЕН EMAIL в куке ${name}: ${parsed.email}`);
+                        }
+                    } catch (e) {
+                        // Не JSON
+                    }
+                } catch (e) {
+                    log(`Ошибка декодирования куки ${name}:`, e);
+                }
+            }
+        });
+        
+        // 5. ПОИСК СКРИПТОВ COLLABZA НА СТРАНИЦЕ
+        log('=== ПОИСК СКРИПТОВ COLLABZA НА СТРАНИЦЕ ===');
+        const scripts = document.querySelectorAll('script[src]');
+        scripts.forEach((script, index) => {
+            const src = script.src;
+            if (src.toLowerCase().includes('collabza') ||
+                src.toLowerCase().includes('auth') ||
+                src.toLowerCase().includes('user') ||
+                src.toLowerCase().includes('session') ||
+                src.toLowerCase().includes('sdk')) {
+                log(`Найден скрипт ${index}: ${src}`);
+            }
+        });
+        
+        log('=== КОНЕЦ ПОИСКА COLLABZA SDK ===');
+        log('ВНИМАНИЕ: Ищите строки с "НАЙДЕН EMAIL" или "НАЙДЕН SDK"');
+        
+        return null; // Пока возвращаем null для диагностики
     }
     
     // 🌐 ПОЛУЧЕНИЕ ДАННЫХ ПОЛЬЗОВАТЕЛЯ С СЕРВЕРА

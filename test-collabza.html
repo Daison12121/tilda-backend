@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тест поиска Collabza SDK</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .log-output {
+            background: #1e1e1e;
+            color: #00ff00;
+            padding: 20px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 600px;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+        button {
+            background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            margin: 10px;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0,123,255,0.3);
+        }
+        .found {
+            color: #ffff00 !important;
+            font-weight: bold;
+        }
+        .error {
+            color: #ff6b6b !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Поиск Collabza SDK и системы сессий</h1>
+        <p>Этот тест поможет найти SDK Collabza и токены сессий на странице.</p>
+        
+        <button onclick="runCollabzaSearch()">🚀 Запустить поиск Collabza SDK</button>
+        <button onclick="clearLogs()">🗑️ Очистить логи</button>
+        
+        <div id="logOutput" class="log-output"></div>
+    </div>
+
+    <script>
+        // Имитируем некоторые данные для тестирования
+        localStorage.setItem('tilda_user_data', '{"id":"6ebc01e5-90be-4ebf-b680-9b385bd58c3b","email":"barbarosgroup2024@gmail.com","name":"barbarosgroup2022","created_at":"2025-08-19T01:45:46.025237+00:00","auth_uid":null,"referral_code":"0649ABAR","referred_by":null,"balance_kgs":0,"total_earned":100,"level_1_referrals":1,"level_2_referrals":0,"level_3_referrals":0}');
+        localStorage.setItem('tilda_user_email', '"barbarosgroup2024@gmail.com"');
+        document.cookie = "userEmail=barbarosgroup2024@gmail.com; path=/";
+        document.cookie = "tilda_user_email=barbarosgroup2024@gmail.com; path=/";
+
+        function log(message, data = '') {
+            const logOutput = document.getElementById('logOutput');
+            const timestamp = new Date().toLocaleTimeString();
+            let logClass = '';
+            
+            if (message.includes('НАЙДЕН EMAIL') || message.includes('НАЙДЕН SDK')) {
+                logClass = 'found';
+            } else if (message.includes('Ошибка') || message.includes('ERROR')) {
+                logClass = 'error';
+            }
+            
+            const logEntry = document.createElement('div');
+            logEntry.className = logClass;
+            logEntry.innerHTML = `[${timestamp}] ${message}${data ? ' ' + JSON.stringify(data, null, 2) : ''}`;
+            logOutput.appendChild(logEntry);
+            logOutput.scrollTop = logOutput.scrollHeight;
+        }
+
+        function clearLogs() {
+            document.getElementById('logOutput').innerHTML = '';
+        }
+
+        // 🔍 ПОИСК COLLABZA SDK И ТОКЕНОВ
+        function getTildaUserEmail() {
+            log('=== ПОИСК COLLABZA SDK И СИСТЕМЫ СЕССИЙ ===');
+            
+            // 1. ПОИСК COLLABZA SDK В ГЛОБАЛЬНЫХ ПЕРЕМЕННЫХ
+            log('=== ПОИСК COLLABZA/ВНЕШНИХ SDK ===');
+            const possibleSDKs = [
+                'Collabza', 'collabza', 'COLLABZA',
+                'CollabzaSDK', 'collabzaSDK', 'collabza_sdk',
+                'CZ', 'cz', 'czSDK',
+                'UserSDK', 'userSDK', 'user_sdk',
+                'AuthSDK', 'authSDK', 'auth_sdk',
+                'SessionSDK', 'sessionSDK', 'session_sdk'
+            ];
+            
+            possibleSDKs.forEach(sdkName => {
+                if (window[sdkName]) {
+                    log(`НАЙДЕН SDK: window.${sdkName}`, window[sdkName]);
+                    
+                    // Проверяем методы SDK
+                    if (typeof window[sdkName] === 'object') {
+                        const methods = Object.keys(window[sdkName]);
+                        log(`Методы ${sdkName}:`, methods);
+                        
+                        // Ищем методы получения пользователя
+                        const userMethods = methods.filter(method => 
+                            method.toLowerCase().includes('user') || 
+                            method.toLowerCase().includes('email') ||
+                            method.toLowerCase().includes('current') ||
+                            method.toLowerCase().includes('session') ||
+                            method.toLowerCase().includes('auth')
+                        );
+                        
+                        if (userMethods.length > 0) {
+                            log(`Найдены методы пользователя в ${sdkName}:`, userMethods);
+                            
+                            userMethods.forEach(method => {
+                                try {
+                                    if (typeof window[sdkName][method] === 'function') {
+                                        const result = window[sdkName][method]();
+                                        log(`${sdkName}.${method}():`, result);
+                                        if (result && result.email) {
+                                            log(`НАЙДЕН EMAIL через ${sdkName}.${method}(): ${result.email}`);
+                                        }
+                                    } else {
+                                        log(`${sdkName}.${method}:`, window[sdkName][method]);
+                                        if (window[sdkName][method] && window[sdkName][method].email) {
+                                            log(`НАЙДЕН EMAIL в ${sdkName}.${method}: ${window[sdkName][method].email}`);
+                                        }
+                                    }
+                                } catch (error) {
+                                    log(`Ошибка при вызове ${sdkName}.${method}:`, error);
+                                }
+                            });
+                        }
+                    }
+                }
+            });
+            
+            // 2. ПОИСК ВСЕХ ГЛОБАЛЬНЫХ ПЕРЕМЕННЫХ С ДАННЫМИ ПОЛЬЗОВАТЕЛЯ
+            log('=== ПОИСК ВСЕХ ГЛОБАЛЬНЫХ ПЕРЕМЕННЫХ ===');
+            const allWindowKeys = Object.keys(window);
+            const userRelatedKeys = allWindowKeys.filter(key => 
+                key.toLowerCase().includes('user') ||
+                key.toLowerCase().includes('auth') ||
+                key.toLowerCase().includes('session') ||
+                key.toLowerCase().includes('token') ||
+                key.toLowerCase().includes('email') ||
+                key.toLowerCase().includes('current') ||
+                key.toLowerCase().includes('member') ||
+                key.toLowerCase().includes('profile') ||
+                key.toLowerCase().includes('account')
+            );
+            
+            log('Найдены переменные связанные с пользователем:', userRelatedKeys);
+            
+            userRelatedKeys.forEach(key => {
+                try {
+                    const value = window[key];
+                    log(`window.${key}:`, value);
+                    
+                    if (value && typeof value === 'object') {
+                        if (value.email) {
+                            log(`НАЙДЕН EMAIL в window.${key}: ${value.email}`);
+                        }
+                        
+                        // Проверяем вложенные объекты
+                        Object.keys(value).forEach(subKey => {
+                            if (subKey.toLowerCase().includes('email') || 
+                                subKey.toLowerCase().includes('user') ||
+                                subKey.toLowerCase().includes('current')) {
+                                log(`  ${key}.${subKey}:`, value[subKey]);
+                                if (value[subKey] && value[subKey].email) {
+                                    log(`НАЙДЕН EMAIL в window.${key}.${subKey}: ${value[subKey].email}`);
+                                }
+                            }
+                        });
+                    }
+                } catch (error) {
+                    log(`Ошибка при проверке window.${key}:`, error);
+                }
+            });
+            
+            // 3. ПОИСК ТОКЕНОВ И СЕССИЙ В STORAGE
+            log('=== ПОИСК ТОКЕНОВ COLLABZA В STORAGE ===');
+            
+            // localStorage
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key.toLowerCase().includes('collabza') ||
+                    key.toLowerCase().includes('token') ||
+                    key.toLowerCase().includes('session') ||
+                    key.toLowerCase().includes('auth') ||
+                    key.toLowerCase().includes('jwt') ||
+                    key.toLowerCase().includes('access') ||
+                    key.toLowerCase().includes('bearer')) {
+                    
+                    const value = localStorage.getItem(key);
+                    log(`localStorage ${key}:`, value);
+                    
+                    try {
+                        const parsed = JSON.parse(value);
+                        log(`Парсированный ${key}:`, parsed);
+                        if (parsed.email) {
+                            log(`НАЙДЕН EMAIL в localStorage ${key}: ${parsed.email}`);
+                        }
+                    } catch (e) {
+                        // Не JSON
+                    }
+                }
+            }
+            
+            // sessionStorage
+            for (let i = 0; i < sessionStorage.length; i++) {
+                const key = sessionStorage.key(i);
+                if (key.toLowerCase().includes('collabza') ||
+                    key.toLowerCase().includes('token') ||
+                    key.toLowerCase().includes('session') ||
+                    key.toLowerCase().includes('auth') ||
+                    key.toLowerCase().includes('jwt') ||
+                    key.toLowerCase().includes('access') ||
+                    key.toLowerCase().includes('bearer')) {
+                    
+                    const value = sessionStorage.getItem(key);
+                    log(`sessionStorage ${key}:`, value);
+                    
+                    try {
+                        const parsed = JSON.parse(value);
+                        log(`Парсированный ${key}:`, parsed);
+                        if (parsed.email) {
+                            log(`НАЙДЕН EMAIL в sessionStorage ${key}: ${parsed.email}`);
+                        }
+                    } catch (e) {
+                        // Не JSON
+                    }
+                }
+            }
+            
+            // 4. ПОИСК ТОКЕНОВ В КУКАХ
+            log('=== ПОИСК ТОКЕНОВ COLLABZA В КУКАХ ===');
+            const cookies = document.cookie.split(';');
+            cookies.forEach(cookie => {
+                const [name, value] = cookie.trim().split('=');
+                if (name.toLowerCase().includes('collabza') ||
+                    name.toLowerCase().includes('token') ||
+                    name.toLowerCase().includes('session') ||
+                    name.toLowerCase().includes('auth') ||
+                    name.toLowerCase().includes('jwt') ||
+                    name.toLowerCase().includes('access') ||
+                    name.toLowerCase().includes('bearer')) {
+                    
+                    try {
+                        const decoded = decodeURIComponent(value || '');
+                        log(`Кука ${name}:`, decoded);
+                        
+                        try {
+                            const parsed = JSON.parse(decoded);
+                            log(`Парсированная кука ${name}:`, parsed);
+                            if (parsed.email) {
+                                log(`НАЙДЕН EMAIL в куке ${name}: ${parsed.email}`);
+                            }
+                        } catch (e) {
+                            // Не JSON
+                        }
+                    } catch (e) {
+                        log(`Ошибка декодирования куки ${name}:`, e);
+                    }
+                }
+            });
+            
+            // 5. ПОИСК СКРИПТОВ COLLABZA НА СТРАНИЦЕ
+            log('=== ПОИСК СКРИПТОВ COLLABZA НА СТРАНИЦЕ ===');
+            const scripts = document.querySelectorAll('script[src]');
+            scripts.forEach((script, index) => {
+                const src = script.src;
+                if (src.toLowerCase().includes('collabza') ||
+                    src.toLowerCase().includes('auth') ||
+                    src.toLowerCase().includes('user') ||
+                    src.toLowerCase().includes('session') ||
+                    src.toLowerCase().includes('sdk')) {
+                    log(`Найден скрипт ${index}: ${src}`);
+                }
+            });
+            
+            log('=== КОНЕЦ ПОИСКА COLLABZA SDK ===');
+            log('ВНИМАНИЕ: Ищите строки с "НАЙДЕН EMAIL" или "НАЙДЕН SDK"');
+            
+            return null; // Пока возвращаем null для диагностики
+        }
+
+        function runCollabzaSearch() {
+            clearLogs();
+            log('🚀 Запуск поиска Collabza SDK...');
+            getTildaUserEmail();
+        }
+
+        // Автозапуск при загрузке страницы
+        window.addEventListener('load', () => {
+            setTimeout(runCollabzaSearch, 1000);
+        });
+    </script>
+</body>
+</html>
