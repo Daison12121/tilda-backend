@@ -124,9 +124,57 @@
         return null;
     }
     
+    // 🔍 ПОЛУЧЕНИЕ АКТУАЛЬНОГО EMAIL ИЗ СИСТЕМЫ ТИЛЬДЫ
+    function getCurrentTildaEmail() {
+        // Проверяем систему членства Тильды (самый актуальный источник)
+        if (window.tildaMembers) {
+            log('Проверяем актуального пользователя в tildaMembers:', window.tildaMembers);
+            
+            // Проверяем методы получения текущего пользователя
+            if (typeof window.tildaMembers.getCurrentUser === 'function') {
+                try {
+                    const currentUser = window.tildaMembers.getCurrentUser();
+                    if (currentUser && currentUser.email) {
+                        log(`Актуальный email найден через getCurrentUser: ${currentUser.email}`);
+                        return currentUser.email;
+                    }
+                } catch (error) {
+                    log('Ошибка при вызове getCurrentUser:', error);
+                }
+            }
+            
+            // Проверяем разные варианты структуры данных
+            const memberSources = [
+                window.tildaMembers.currentUser,
+                window.tildaMembers.user,
+                window.tildaMembers.member
+            ];
+            
+            for (const source of memberSources) {
+                if (source && source.email) {
+                    log(`Актуальный email найден в tildaMembers: ${source.email}`);
+                    return source.email;
+                }
+            }
+        }
+        
+        // Проверяем глобальные переменные
+        if (window.currentUser && window.currentUser.email) {
+            log(`Актуальный email найден в currentUser: ${window.currentUser.email}`);
+            return window.currentUser.email;
+        }
+        
+        if (window.tildaForm && window.tildaForm.userEmail) {
+            log(`Актуальный email найден в tildaForm: ${window.tildaForm.userEmail}`);
+            return window.tildaForm.userEmail;
+        }
+        
+        return null;
+    }
+    
     // 📧 ПОЛУЧЕНИЕ EMAIL ПОЛЬЗОВАТЕЛЯ
     function getUserEmail() {
-        // Проверяем URL параметр
+        // Проверяем URL параметр (высший приоритет)
         const urlEmail = getUrlParameter('email');
         if (urlEmail) {
             log('Email найден в URL');
@@ -134,61 +182,12 @@
             return urlEmail;
         }
         
-        // Проверяем localStorage
-        const storageEmail = getFromStorage(CONFIG.STORAGE_KEYS.USER_EMAIL);
-        if (storageEmail) {
-            log('Email найден в localStorage');
-            return storageEmail;
-        }
-        
-        // Пытаемся найти email в глобальных переменных Тильды
-        if (window.tildaForm && window.tildaForm.userEmail) {
-            const tildaEmail = window.tildaForm.userEmail;
-            log('Email найден в tildaForm');
-            saveToStorage(CONFIG.STORAGE_KEYS.USER_EMAIL, tildaEmail);
-            return tildaEmail;
-        }
-        
-        if (window.currentUser && window.currentUser.email) {
-            const currentEmail = window.currentUser.email;
-            log('Email найден в currentUser');
+        // Получаем актуальный email из системы Тильды
+        const currentEmail = getCurrentTildaEmail();
+        if (currentEmail) {
+            // Обновляем кэш с актуальными данными
             saveToStorage(CONFIG.STORAGE_KEYS.USER_EMAIL, currentEmail);
             return currentEmail;
-        }
-        
-        // Пытаемся найти email в системе членства Тильды
-        if (window.tildaMembers) {
-            log('Проверяем tildaMembers:', window.tildaMembers);
-            
-            // Проверяем разные варианты структуры данных
-            const memberSources = [
-                window.tildaMembers.currentUser,
-                window.tildaMembers.user,
-                window.tildaMembers.member,
-                window.tildaMembers
-            ];
-            
-            for (const source of memberSources) {
-                if (source && source.email) {
-                    log(`Email найден в tildaMembers: ${source.email}`);
-                    saveToStorage(CONFIG.STORAGE_KEYS.USER_EMAIL, source.email);
-                    return source.email;
-                }
-            }
-            
-            // Проверяем методы получения данных пользователя
-            if (typeof window.tildaMembers.getCurrentUser === 'function') {
-                try {
-                    const currentUser = window.tildaMembers.getCurrentUser();
-                    if (currentUser && currentUser.email) {
-                        log(`Email найден через getCurrentUser: ${currentUser.email}`);
-                        saveToStorage(CONFIG.STORAGE_KEYS.USER_EMAIL, currentUser.email);
-                        return currentUser.email;
-                    }
-                } catch (error) {
-                    log('Ошибка при вызове getCurrentUser:', error);
-                }
-            }
         }
         
         // Проверяем куки (разные варианты имен)
@@ -202,6 +201,13 @@
                 saveToStorage(CONFIG.STORAGE_KEYS.USER_EMAIL, decodedEmail);
                 return decodedEmail;
             }
+        }
+        
+        // В последнюю очередь проверяем localStorage (может быть устаревшим)
+        const storageEmail = getFromStorage(CONFIG.STORAGE_KEYS.USER_EMAIL);
+        if (storageEmail) {
+            log('Email найден в localStorage (может быть устаревшим)');
+            return storageEmail;
         }
         
         log('Email не найден');
@@ -588,7 +594,7 @@
                     ${window.location.pathname === '/cabinet' ? 'Через 2 секунды вы будете перенаправлены на страницу входа...' : ''}
                 </p>
                 <div style="margin-bottom: 20px;">
-                    <button onclick="window.tildaCabinet.refresh()" style="
+                    <button onclick="window.tildaCabinet.forceRefresh()" style="
                         background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%);
                         color: #212529;
                         border: none;
@@ -599,7 +605,7 @@
                         font-weight: 500;
                         margin: 0 5px;
                     ">
-                        🔄 Попробовать снова
+                        🔄 Обновить данные
                     </button>
                     <button onclick="window.location.href='/login'" style="
                         background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%);
@@ -751,6 +757,19 @@
         }
         
         return userData;
+    }
+    
+    // 🔄 ПРИНУДИТЕЛЬНОЕ ОБНОВЛЕНИЕ ДАННЫХ ПОЛЬЗОВАТЕЛЯ
+    function forceRefreshUserData() {
+        log('Принудительное обновление данных пользователя...');
+        
+        // Очищаем кэш
+        localStorage.removeItem(CONFIG.STORAGE_KEYS.USER_DATA);
+        localStorage.removeItem(CONFIG.STORAGE_KEYS.USER_EMAIL);
+        localStorage.removeItem(CONFIG.STORAGE_KEYS.USER_TOKEN);
+        
+        // Перезагружаем профиль
+        loadUserProfile();
     }
     
     // 🎯 ОСНОВНАЯ ФУНКЦИЯ ЗАГРУЗКИ ПРОФИЛЯ
@@ -924,6 +943,7 @@
         window.tildaCabinet = {
             load: loadUserProfile,
             refresh: refreshUserData,
+            forceRefresh: forceRefreshUserData,
             logout: logout,
             getToken: getAuthToken,
             getEmail: getUserEmail,
