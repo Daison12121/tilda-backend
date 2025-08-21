@@ -5,7 +5,7 @@
     'use strict';
     
     // URL вашего бэкенда на Railway
-    const BACKEND_URL = 'https://your-railway-app.railway.app'; // ЗАМЕНИТЕ НА ВАШ URL
+    const BACKEND_URL = 'https://tilda-backend-production.up.railway.app';
     
     // Функция для получения email авторизованного пользователя в Тильде
     function getTildaUserEmail() {

@@ -79,6 +79,27 @@ app.get("/api/user", async (req, res) => {
   }
 });
 
+// ✅ ЭНДПОИНТ: Получение данных пользователя по email (НУЖЕН ДЛЯ ПРОСТОГО РЕШЕНИЯ)
+app.get("/user", async (req, res) => {
+  try {
+    const email = req.query.email;
+    if (!email) return res.status(400).json({ error: "email is required" });
+
+    const { data, error } = await supabase
+      .from("users")
+      .select("*")
+      .eq("email", email)
+      .maybeSingle();
+
+    if (error) return res.status(500).json({ error: error.message });
+    if (!data) return res.status(404).json({ error: "User not found" });
+
+    res.json({ data });
+  } catch (e) {
+    res.status(500).json({ error: e.message || "Internal server error" });
+  }
+});
+
 // ✅ ЭНДПОИНТ: Страница личного кабинета (остается без изменений)
 app.get("/cabinet", (req, res) => {
   res.sendFile(path.join(__dirname, "cabinet.html"));
@@ -92,10 +113,12 @@ app.get("/", (req, res) => {
     <h2>Доступные эндпоинты:</h2>
     <ul>
       <li><strong>GET /health</strong> - Проверка работоспособности</li>
-      <li><strong>POST /api/login</strong> - Авторизация пользователя</li>
-      <li><strong>GET /api/user?token=...</strong> - Получение данных пользователя по токену</li>
+      <li><strong>GET /user?email=...</strong> - Получение данных пользователя по email</li>
+      <li><strong>POST /api/login</strong> - Webhook для Тильды</li>
+      <li><strong>GET /api/user?token=...</strong> - Получение данных по токену</li>
+      <li><strong>GET /cabinet?token=...</strong> - Страница кабинета</li>
     </ul>
-    <p>Проверьте логи, чтобы увидеть запросы с Тильды.</p>
+    <p><a href="/health">Проверить здоровье сервера</a></p>
   `);
 });
 
